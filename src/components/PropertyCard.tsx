@@ -16,6 +16,7 @@ interface PropertyCardProps {
   image: string;
   deadline: string;
   isShielded?: boolean;
+  propertyId: number;
 }
 
 const PropertyCard = ({ 
@@ -27,7 +28,8 @@ const PropertyCard = ({
   area, 
   image, 
   deadline,
-  isShielded = true 
+  isShielded = true,
+  propertyId
 }: PropertyCardProps) => {
   const [showBidModal, setShowBidModal] = useState(false);
   return (
@@ -95,6 +97,7 @@ const PropertyCard = ({
           onClose={() => setShowBidModal(false)}
           propertyTitle={title}
           propertyPrice={price}
+          propertyId={propertyId}
         />
       </div>
     </Card>

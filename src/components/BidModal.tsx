@@ -5,25 +5,65 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
-import { Shield, Lock, Wallet, DollarSign, FileText, User } from "lucide-react";
+import { Shield, Lock, Wallet, DollarSign, FileText, User, Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { useContract } from "@/hooks/useContract";
+import { toast } from "sonner";
 
 interface BidModalProps {
   isOpen: boolean;
   onClose: () => void;
   propertyTitle: string;
   propertyPrice: string;
+  propertyId: number;
 }
 
-const BidModal = ({ isOpen, onClose, propertyTitle, propertyPrice }: BidModalProps) => {
+const BidModal = ({ isOpen, onClose, propertyTitle, propertyPrice, propertyId }: BidModalProps) => {
   const [bidAmount, setBidAmount] = useState("");
   const [message, setMessage] = useState("");
   const [moveInDate, setMoveInDate] = useState("");
+  const [creditScore, setCreditScore] = useState("");
+  const [income, setIncome] = useState("");
+  const [isSuccess, setIsSuccess] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const { submitEncryptedBid, isSubmitting, isSuccess: txSuccess, error, isConnected } = useContract();
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle bid submission logic here
-    console.log("Submitting encrypted bid:", { bidAmount, message, moveInDate });
-    onClose();
+    
+    if (!isConnected) {
+      toast.error("Please connect your wallet first");
+      return;
+    }
+
+    try {
+      await submitEncryptedBid({
+        propertyId,
+        bidAmount: parseFloat(bidAmount),
+        creditScore: parseInt(creditScore),
+        income: parseFloat(income),
+        message,
+        moveInDate
+      });
+
+      toast.success("Encrypted bid submitted successfully!");
+      setIsSuccess(true);
+      
+      // Close modal after a short delay
+      setTimeout(() => {
+        onClose();
+        setIsSuccess(false);
+        // Reset form
+        setBidAmount("");
+        setMessage("");
+        setMoveInDate("");
+        setCreditScore("");
+        setIncome("");
+      }, 2000);
+
+    } catch (err) {
+      console.error("Error submitting bid:", err);
+      toast.error("Failed to submit bid. Please try again.");
+    }
   };
 
   return (
@@ -72,6 +112,48 @@ const BidModal = ({ isOpen, onClose, propertyTitle, propertyPrice }: BidModalPro
             />
             <p className="text-xs text-muted-foreground">
               This amount will be encrypted and only visible to the landlord after the deadline.
+            </p>
+          </div>
+
+          {/* Credit Score */}
+          <div className="space-y-2">
+            <Label htmlFor="creditScore" className="flex items-center gap-2">
+              <Shield className="w-4 h-4 text-primary" />
+              Credit Score
+            </Label>
+            <Input
+              id="creditScore"
+              type="number"
+              placeholder="Enter your credit score"
+              value={creditScore}
+              onChange={(e) => setCreditScore(e.target.value)}
+              className="bg-privacy-surface border-privacy-primary/20 focus:border-privacy-primary"
+              min="300"
+              max="850"
+              required
+            />
+            <p className="text-xs text-muted-foreground">
+              Your credit score will be encrypted and only visible to the landlord.
+            </p>
+          </div>
+
+          {/* Income */}
+          <div className="space-y-2">
+            <Label htmlFor="income" className="flex items-center gap-2">
+              <DollarSign className="w-4 h-4 text-primary" />
+              Annual Income
+            </Label>
+            <Input
+              id="income"
+              type="number"
+              placeholder="Enter your annual income"
+              value={income}
+              onChange={(e) => setIncome(e.target.value)}
+              className="bg-privacy-surface border-privacy-primary/20 focus:border-privacy-primary"
+              required
+            />
+            <p className="text-xs text-muted-foreground">
+              Your income information will be encrypted for privacy.
             </p>
           </div>
 
@@ -124,6 +206,36 @@ const BidModal = ({ isOpen, onClose, propertyTitle, propertyPrice }: BidModalPro
             </div>
           </Card>
 
+          {/* Error Display */}
+          {error && (
+            <Card className="p-4 bg-red-50 border-red-200">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
+                <div>
+                  <h4 className="font-semibold text-red-800 mb-1">Transaction Failed</h4>
+                  <p className="text-sm text-red-700">
+                    {error.message || "An error occurred while submitting your bid. Please try again."}
+                  </p>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Success Display */}
+          {isSuccess && (
+            <Card className="p-4 bg-green-50 border-green-200">
+              <div className="flex items-start gap-3">
+                <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                <div>
+                  <h4 className="font-semibold text-green-800 mb-1">Bid Submitted Successfully!</h4>
+                  <p className="text-sm text-green-700">
+                    Your encrypted bid has been submitted to the blockchain. The landlord will be able to view it after the deadline.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          )}
+
           {/* Action Buttons */}
           <div className="flex gap-4 pt-4">
             <Button
@@ -131,17 +243,43 @@ const BidModal = ({ isOpen, onClose, propertyTitle, propertyPrice }: BidModalPro
               variant="outline"
               onClick={onClose}
               className="flex-1 border-privacy-primary/30 hover:border-privacy-primary hover:bg-privacy-primary/10"
+              disabled={isSubmitting}
             >
               Cancel
             </Button>
             <Button
               type="submit"
               className="flex-1 bg-gradient-primary hover:shadow-glow transition-glow"
+              disabled={isSubmitting || !isConnected}
             >
-              <Wallet className="mr-2 h-4 w-4" />
-              Submit Encrypted Bid
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {isSubmitting ? "Submitting..." : "Confirming..."}
+                </>
+              ) : (
+                <>
+                  <Wallet className="mr-2 h-4 w-4" />
+                  Submit Encrypted Bid
+                </>
+              )}
             </Button>
           </div>
+
+          {/* Wallet Connection Notice */}
+          {!isConnected && (
+            <Card className="p-4 bg-yellow-50 border-yellow-200">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
+                <div>
+                  <h4 className="font-semibold text-yellow-800 mb-1">Wallet Not Connected</h4>
+                  <p className="text-sm text-yellow-700">
+                    Please connect your wallet to submit an encrypted bid.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          )}
         </form>
       </DialogContent>
     </Dialog>

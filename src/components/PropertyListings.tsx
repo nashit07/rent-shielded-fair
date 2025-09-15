@@ -18,7 +18,8 @@ const PropertyListings = () => {
       area: 650,
       image: apartment1,
       deadline: "Dec 20, 2024",
-      isShielded: true
+      isShielded: true,
+      propertyId: 1
     },
     {
       id: "2", 
@@ -30,7 +31,8 @@ const PropertyListings = () => {
       area: 1400,
       image: apartment2,
       deadline: "Dec 18, 2024",
-      isShielded: true
+      isShielded: true,
+      propertyId: 2
     },
     {
       id: "3",
@@ -42,7 +44,8 @@ const PropertyListings = () => {
       area: 950,
       image: apartment3,
       deadline: "Dec 22, 2024",
-      isShielded: true
+      isShielded: true,
+      propertyId: 3
     }
   ];
 
