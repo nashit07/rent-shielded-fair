@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🛡️ Rent Shielded Fair
+# 🏠 RentShield
 
 **The Future of Privacy-Preserving Rental Markets**
 
@@ -17,7 +17,7 @@
 
 ## 🌟 What Makes Us Different?
 
-Unlike traditional rental platforms that expose your sensitive financial data, **Rent Shielded Fair** leverages cutting-edge **Fully Homomorphic Encryption (FHE)** to protect your privacy while maintaining full functionality.
+Unlike traditional rental platforms that expose your sensitive financial data, **RentShield** leverages cutting-edge **Fully Homomorphic Encryption (FHE)** to protect your privacy while maintaining full functionality.
 
 ### 🔐 Privacy-First Architecture
 

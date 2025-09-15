@@ -1,10 +1,32 @@
 <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="shieldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="houseGradient" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#1d4ed8;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#1d4ed8;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1e40af;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="lockGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#10b981;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#059669;stop-opacity:1" />
     </linearGradient>
   </defs>
-  <path d="M16 2L4 6v8c0 8.5 4.5 16.5 12 18 7.5-1.5 12-9.5 12-18V6L16 2z" fill="url(#shieldGradient)" stroke="#1e40af" stroke-width="1.5" stroke-linejoin="round"/>
-  <path d="M12 16l3 3 6-6" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  
+  <!-- House base -->
+  <path d="M16 4L6 12v16h6v-8h8v8h6V12L16 4z" fill="url(#houseGradient)" stroke="#1e40af" stroke-width="1" stroke-linejoin="round"/>
+  
+  <!-- House roof -->
+  <path d="M16 4L4 10v2L16 6L28 12v-2L16 4z" fill="#1e40af" stroke="#1e40af" stroke-width="1" stroke-linejoin="round"/>
+  
+  <!-- Door -->
+  <rect x="13" y="18" width="6" height="8" fill="#1e40af" rx="1"/>
+  
+  <!-- Windows -->
+  <rect x="8" y="14" width="3" height="3" fill="#60a5fa" rx="0.5"/>
+  <rect x="21" y="14" width="3" height="3" fill="#60a5fa" rx="0.5"/>
+  
+  <!-- Privacy lock overlay -->
+  <circle cx="24" cy="8" r="6" fill="url(#lockGradient)" stroke="white" stroke-width="1"/>
+  <path d="M22 6h4v3h-4v-3z" fill="white"/>
+  <path d="M22 9h4v2c0 1-1 2-2 2s-2-1-2-2V9z" fill="white"/>
+  <circle cx="24" cy="10" r="0.5" fill="#059669"/>
 </svg>

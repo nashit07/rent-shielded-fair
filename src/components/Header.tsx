@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Shield, Menu, Wallet } from "lucide-react";
+import { Home, Menu, Wallet } from "lucide-react";
 import { useState } from "react";
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 
@@ -12,9 +12,9 @@ const Header = () => {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <div className="flex items-center space-x-2">
-            <Shield className="h-8 w-8 text-primary" />
+            <Home className="h-8 w-8 text-primary" />
             <span className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              ShieldRent
+              RentShield
             </span>
           </div>
 
