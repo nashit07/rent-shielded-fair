@@ -82,17 +82,9 @@ const MyApplications = () => {
     );
   }
 
+  // Don't block the UI for FHE errors - show a warning instead
   if (fheError) {
-    return (
-      <div className="text-center py-12">
-        <XCircle className="w-12 h-12 mx-auto text-red-500 mb-4" />
-        <h3 className="text-lg font-semibold mb-2">Encryption Service Error</h3>
-        <p className="text-muted-foreground mb-4">{fheError}</p>
-        <Button onClick={initializeZama} variant="outline">
-          Retry Initialization
-        </Button>
-      </div>
-    );
+    console.warn('[MyApplications] FHE initialization failed, but continuing with basic functionality:', fheError);
   }
 
   if (isLoading) {
@@ -132,6 +124,12 @@ const MyApplications = () => {
             <div className="flex items-center gap-2 mt-2 text-sm text-green-600">
               <Shield className="w-4 h-4" />
               <span>Encryption service ready for secure data decryption</span>
+            </div>
+          )}
+          {fheError && (
+            <div className="flex items-center gap-2 mt-2 text-sm text-yellow-600">
+              <XCircle className="w-4 h-4" />
+              <span>Encryption service unavailable - basic functionality only</span>
             </div>
           )}
         </div>
