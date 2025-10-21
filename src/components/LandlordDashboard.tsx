@@ -140,19 +140,27 @@ const LandlordDashboard = () => {
   useEffect(() => {
     if (propertiesData && address) {
       console.log('📊 Processing properties data for landlord...');
+      console.log('📊 Raw properties data:', propertiesData);
       
       const processedProperties: PropertyInfo[] = [];
       
       propertiesData.forEach((result, index) => {
+        console.log(`📊 Processing property ${index}:`, result);
+        
         if (result.status === 'success' && result.result) {
           const data = result.result as any[];
+          console.log(`📊 Property ${index} data:`, data);
+          
           const propertyOwner = data[10]; // propertyOwner is at index 10
+          console.log(`📊 Property ${index} owner:`, propertyOwner);
+          console.log(`📊 Current address:`, address);
+          console.log(`📊 Owner match:`, propertyOwner.toLowerCase() === address.toLowerCase());
           
           // Only include properties owned by the current user
           if (propertyOwner.toLowerCase() === address.toLowerCase()) {
             console.log(`✅ Property ${index} belongs to landlord`);
             
-            processedProperties.push({
+            const property = {
               id: index,
               name: data[0],
               description: data[1],
@@ -167,14 +175,20 @@ const LandlordDashboard = () => {
               owner: propertyOwner,
               createdAt: Number(data[11]),
               applications: []
-            });
+            };
+            
+            console.log(`📊 Processed property ${index}:`, property);
+            processedProperties.push(property);
           } else {
             console.log(`❌ Property ${index} not owned by landlord`);
           }
+        } else {
+          console.log(`❌ Property ${index} failed to load:`, result);
         }
       });
       
       console.log(`✅ Found ${processedProperties.length} properties for landlord`);
+      console.log('📊 Final processed properties:', processedProperties);
       setProperties(processedProperties);
       setIsLoading(false);
     }
