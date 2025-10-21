@@ -7,6 +7,10 @@ export default defineConfig({
   server: {
     host: "::",
     port: 8080,
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp'
+    }
   },
   plugins: [react()],
   resolve: {
@@ -14,4 +18,10 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  define: { 
+    global: 'globalThis' 
+  },
+  optimizeDeps: { 
+    include: ['@zama-fhe/relayer-sdk/bundle'] 
+  }
 });

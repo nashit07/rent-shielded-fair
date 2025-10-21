@@ -2,18 +2,18 @@
 pragma solidity ^0.8.24;
 
 import { SepoliaConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
-import { euint32, externalEuint32, euint8, ebool, FHE } from "@fhevm/solidity/lib/FHE.sol";
+import { euint32, externalEuint32, euint8, ebool, eaddress, externalEaddress, FHE } from "@fhevm/solidity/lib/FHE.sol";
 
 contract RentShieldedFair is SepoliaConfig {
     using FHE for *;
     
     struct Property {
-        euint32 propertyId;
-        euint32 monthlyRent;
-        euint32 securityDeposit;
-        euint32 propertySize;
-        euint32 bedrooms;
-        euint32 bathrooms;
+        uint256 propertyId;
+        uint256 monthlyRent;        // Public price information
+        uint256 securityDeposit;    // Public deposit information
+        uint256 propertySize;       // Public area information
+        uint8 bedrooms;             // Public bedroom count
+        uint8 bathrooms;            // Public bathroom count
         bool isAvailable;
         bool isVerified;
         string name;
@@ -105,22 +105,25 @@ contract RentShieldedFair is SepoliaConfig {
         uint256 _monthlyRent,
         uint256 _securityDeposit,
         uint256 _propertySize,
-        uint256 _bedrooms,
-        uint256 _bathrooms
+        uint8 _bedrooms,
+        uint8 _bathrooms
     ) public returns (uint256) {
         require(bytes(_name).length > 0, "Property name cannot be empty");
         require(_monthlyRent > 0, "Monthly rent must be positive");
         require(_securityDeposit > 0, "Security deposit must be positive");
+        require(_propertySize > 0, "Property size must be positive");
+        require(_bedrooms > 0, "Bedrooms must be positive");
+        require(_bathrooms > 0, "Bathrooms must be positive");
         
         uint256 propertyId = propertyCounter++;
         
         properties[propertyId] = Property({
-            propertyId: FHE.asEuint32(0), // Will be set properly later
-            monthlyRent: FHE.asEuint32(0), // Will be set to actual value via FHE operations
-            securityDeposit: FHE.asEuint32(0), // Will be set to actual value via FHE operations
-            propertySize: FHE.asEuint32(0), // Will be set to actual value via FHE operations
-            bedrooms: FHE.asEuint32(0), // Will be set to actual value via FHE operations
-            bathrooms: FHE.asEuint32(0), // Will be set to actual value via FHE operations
+            propertyId: propertyId,
+            monthlyRent: _monthlyRent,
+            securityDeposit: _securityDeposit,
+            propertySize: _propertySize,
+            bedrooms: _bedrooms,
+            bathrooms: _bathrooms,
             isAvailable: true,
             isVerified: false,
             name: _name,
@@ -154,8 +157,8 @@ contract RentShieldedFair is SepoliaConfig {
         euint32 internalIncome = FHE.fromExternal(income, inputProof);
         
         applications[applicationId] = RentalApplication({
-            applicationId: FHE.asEuint32(0), // Will be set properly later
-            propertyId: FHE.asEuint32(0), // Will be set to actual value via FHE operations
+            applicationId: FHE.asEuint32(uint32(applicationId)),
+            propertyId: FHE.asEuint32(uint32(propertyId)),
             proposedRent: internalProposedRent,
             creditScore: internalCreditScore,
             income: internalIncome,
@@ -167,6 +170,20 @@ contract RentShieldedFair is SepoliaConfig {
             submittedAt: block.timestamp,
             reviewedAt: 0
         });
+        
+        // Set ACL permissions for encrypted application data
+        FHE.allowThis(applications[applicationId].proposedRent);
+        FHE.allowThis(applications[applicationId].creditScore);
+        FHE.allowThis(applications[applicationId].income);
+        
+        FHE.allow(applications[applicationId].proposedRent, msg.sender);
+        FHE.allow(applications[applicationId].creditScore, msg.sender);
+        FHE.allow(applications[applicationId].income, msg.sender);
+        
+        // Allow property owner to decrypt application data
+        FHE.allow(applications[applicationId].proposedRent, properties[propertyId].owner);
+        FHE.allow(applications[applicationId].creditScore, properties[propertyId].owner);
+        FHE.allow(applications[applicationId].income, properties[propertyId].owner);
         
         emit ApplicationSubmitted(applicationId, propertyId, msg.sender);
         return applicationId;
@@ -206,8 +223,8 @@ contract RentShieldedFair is SepoliaConfig {
         euint32 internalLeaseDuration = FHE.fromExternal(leaseDuration, inputProof);
         
         agreements[agreementId] = RentalAgreement({
-            agreementId: FHE.asEuint32(0), // Will be set properly later
-            propertyId: FHE.asEuint32(0), // Will be set to actual value via FHE operations
+            agreementId: FHE.asEuint32(uint32(agreementId)),
+            propertyId: FHE.asEuint32(uint32(propertyId)),
             monthlyRent: internalMonthlyRent,
             securityDeposit: internalSecurityDeposit,
             leaseDuration: internalLeaseDuration,
@@ -220,6 +237,19 @@ contract RentShieldedFair is SepoliaConfig {
             endDate: block.timestamp + (365 days), // Default 1 year lease
             createdAt: block.timestamp
         });
+        
+        // Set ACL permissions for encrypted agreement data
+        FHE.allowThis(agreements[agreementId].monthlyRent);
+        FHE.allowThis(agreements[agreementId].securityDeposit);
+        FHE.allowThis(agreements[agreementId].leaseDuration);
+        
+        FHE.allow(agreements[agreementId].monthlyRent, msg.sender);
+        FHE.allow(agreements[agreementId].securityDeposit, msg.sender);
+        FHE.allow(agreements[agreementId].leaseDuration, msg.sender);
+        
+        FHE.allow(agreements[agreementId].monthlyRent, applications[applicationId].applicant);
+        FHE.allow(agreements[agreementId].securityDeposit, applications[applicationId].applicant);
+        FHE.allow(agreements[agreementId].leaseDuration, applications[applicationId].applicant);
         
         // Mark property as unavailable
         properties[propertyId].isAvailable = false;
@@ -247,8 +277,8 @@ contract RentShieldedFair is SepoliaConfig {
         euint32 internalYear = FHE.fromExternal(year, inputProof);
         
         payments[paymentId] = Payment({
-            paymentId: FHE.asEuint32(0), // Will be set properly later
-            agreementId: FHE.asEuint32(0), // Will be set to actual value via FHE operations
+            paymentId: FHE.asEuint32(uint32(paymentId)),
+            agreementId: FHE.asEuint32(uint32(agreementId)),
             amount: internalAmount,
             month: internalMonth,
             year: internalYear,
@@ -260,6 +290,19 @@ contract RentShieldedFair is SepoliaConfig {
             dueDate: block.timestamp,
             paidAt: block.timestamp
         });
+        
+        // Set ACL permissions for encrypted payment data
+        FHE.allowThis(payments[paymentId].amount);
+        FHE.allowThis(payments[paymentId].month);
+        FHE.allowThis(payments[paymentId].year);
+        
+        FHE.allow(payments[paymentId].amount, msg.sender);
+        FHE.allow(payments[paymentId].month, msg.sender);
+        FHE.allow(payments[paymentId].year, msg.sender);
+        
+        FHE.allow(payments[paymentId].amount, agreements[agreementId].landlord);
+        FHE.allow(payments[paymentId].month, agreements[agreementId].landlord);
+        FHE.allow(payments[paymentId].year, agreements[agreementId].landlord);
         
         emit PaymentMade(paymentId, agreementId, msg.sender);
         return paymentId;
@@ -291,14 +334,14 @@ contract RentShieldedFair is SepoliaConfig {
         string memory name,
         string memory description,
         string memory location,
-        uint8 monthlyRent,
-        uint8 securityDeposit,
-        uint8 propertySize,
+        uint256 monthlyRent,
+        uint256 securityDeposit,
+        uint256 propertySize,
         uint8 bedrooms,
         uint8 bathrooms,
         bool isAvailable,
         bool isVerified,
-        address owner,
+        address propertyOwner,
         uint256 createdAt
     ) {
         Property storage property = properties[propertyId];
@@ -306,11 +349,11 @@ contract RentShieldedFair is SepoliaConfig {
             property.name,
             property.description,
             property.location,
-            0, // FHE.decrypt(property.monthlyRent) - will be decrypted off-chain
-            0, // FHE.decrypt(property.securityDeposit) - will be decrypted off-chain
-            0, // FHE.decrypt(property.propertySize) - will be decrypted off-chain
-            0, // FHE.decrypt(property.bedrooms) - will be decrypted off-chain
-            0, // FHE.decrypt(property.bathrooms) - will be decrypted off-chain
+            property.monthlyRent,
+            property.securityDeposit,
+            property.propertySize,
+            property.bedrooms,
+            property.bathrooms,
             property.isAvailable,
             property.isVerified,
             property.owner,
@@ -318,10 +361,10 @@ contract RentShieldedFair is SepoliaConfig {
         );
     }
     
+    // Property data is now public, no encrypted data to retrieve
+    // Use getPropertyInfo() instead to get public property information
+    
     function getApplicationInfo(uint256 applicationId) public view returns (
-        uint8 proposedRent,
-        uint8 creditScore,
-        uint8 income,
         bool isApproved,
         bool isRejected,
         string memory applicationHash,
@@ -331,9 +374,6 @@ contract RentShieldedFair is SepoliaConfig {
     ) {
         RentalApplication storage application = applications[applicationId];
         return (
-            0, // FHE.decrypt(application.proposedRent) - will be decrypted off-chain
-            0, // FHE.decrypt(application.creditScore) - will be decrypted off-chain
-            0, // FHE.decrypt(application.income) - will be decrypted off-chain
             application.isApproved,
             application.isRejected,
             application.applicationHash,
@@ -343,10 +383,20 @@ contract RentShieldedFair is SepoliaConfig {
         );
     }
     
+    function getApplicationEncryptedData(uint256 applicationId) public view returns (
+        euint32 proposedRent,
+        euint32 creditScore,
+        euint32 income
+    ) {
+        RentalApplication storage application = applications[applicationId];
+        return (
+            application.proposedRent,
+            application.creditScore,
+            application.income
+        );
+    }
+    
     function getAgreementInfo(uint256 agreementId) public view returns (
-        uint8 monthlyRent,
-        uint8 securityDeposit,
-        uint8 leaseDuration,
         bool isActive,
         bool isTerminated,
         string memory agreementHash,
@@ -357,9 +407,6 @@ contract RentShieldedFair is SepoliaConfig {
     ) {
         RentalAgreement storage agreement = agreements[agreementId];
         return (
-            0, // FHE.decrypt(agreement.monthlyRent) - will be decrypted off-chain
-            0, // FHE.decrypt(agreement.securityDeposit) - will be decrypted off-chain
-            0, // FHE.decrypt(agreement.leaseDuration) - will be decrypted off-chain
             agreement.isActive,
             agreement.isTerminated,
             agreement.agreementHash,
@@ -370,10 +417,20 @@ contract RentShieldedFair is SepoliaConfig {
         );
     }
     
+    function getAgreementEncryptedData(uint256 agreementId) public view returns (
+        euint32 monthlyRent,
+        euint32 securityDeposit,
+        euint32 leaseDuration
+    ) {
+        RentalAgreement storage agreement = agreements[agreementId];
+        return (
+            agreement.monthlyRent,
+            agreement.securityDeposit,
+            agreement.leaseDuration
+        );
+    }
+    
     function getPaymentInfo(uint256 paymentId) public view returns (
-        uint8 amount,
-        uint8 month,
-        uint8 year,
         bool isPaid,
         bool isLate,
         string memory paymentHash,
@@ -384,9 +441,6 @@ contract RentShieldedFair is SepoliaConfig {
     ) {
         Payment storage payment = payments[paymentId];
         return (
-            0, // FHE.decrypt(payment.amount) - will be decrypted off-chain
-            0, // FHE.decrypt(payment.month) - will be decrypted off-chain
-            0, // FHE.decrypt(payment.year) - will be decrypted off-chain
             payment.isPaid,
             payment.isLate,
             payment.paymentHash,
@@ -397,12 +451,25 @@ contract RentShieldedFair is SepoliaConfig {
         );
     }
     
-    function getTenantReputation(address tenant) public view returns (uint8) {
-        return 0; // FHE.decrypt(tenantReputation[tenant]) - will be decrypted off-chain
+    function getPaymentEncryptedData(uint256 paymentId) public view returns (
+        euint32 amount,
+        euint32 month,
+        euint32 year
+    ) {
+        Payment storage payment = payments[paymentId];
+        return (
+            payment.amount,
+            payment.month,
+            payment.year
+        );
     }
     
-    function getLandlordReputation(address landlord) public view returns (uint8) {
-        return 0; // FHE.decrypt(landlordReputation[landlord]) - will be decrypted off-chain
+    function getTenantReputation(address tenant) public view returns (euint32) {
+        return tenantReputation[tenant];
+    }
+    
+    function getLandlordReputation(address landlord) public view returns (euint32) {
+        return landlordReputation[landlord];
     }
     
     function terminateAgreement(uint256 agreementId) public {

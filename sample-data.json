@@ -1,0 +1,57 @@
+{
+  "properties": [
+    {
+      "name": "Luxury Downtown Apartment",
+      "description": "Modern 2-bedroom apartment in the heart of downtown with stunning city views, hardwood floors, and premium amenities.",
+      "location": "New York, NY",
+      "monthlyRent": 3500,
+      "securityDeposit": 7000,
+      "propertySize": 1200,
+      "bedrooms": 2,
+      "bathrooms": 2
+    },
+    {
+      "name": "Cozy Suburban House",
+      "description": "Charming 3-bedroom house in a quiet suburban neighborhood with a large backyard and garage.",
+      "location": "San Francisco, CA",
+      "monthlyRent": 4200,
+      "securityDeposit": 8400,
+      "propertySize": 1800,
+      "bedrooms": 3,
+      "bathrooms": 2
+    },
+    {
+      "name": "Modern Studio Loft",
+      "description": "Contemporary studio loft with high ceilings, exposed brick walls, and open floor plan perfect for young professionals.",
+      "location": "Los Angeles, CA",
+      "monthlyRent": 2800,
+      "securityDeposit": 5600,
+      "propertySize": 800,
+      "bedrooms": 1,
+      "bathrooms": 1
+    },
+    {
+      "name": "Family Townhouse",
+      "description": "Spacious 4-bedroom townhouse with modern kitchen, large living area, and private patio. Perfect for families.",
+      "location": "Chicago, IL",
+      "monthlyRent": 3800,
+      "securityDeposit": 7600,
+      "propertySize": 2200,
+      "bedrooms": 4,
+      "bathrooms": 3
+    },
+    {
+      "name": "Penthouse Suite",
+      "description": "Luxurious penthouse with panoramic city views, premium finishes, and exclusive amenities including rooftop access.",
+      "location": "Miami, FL",
+      "monthlyRent": 5500,
+      "securityDeposit": 11000,
+      "propertySize": 1500,
+      "bedrooms": 2,
+      "bathrooms": 2
+    }
+  ],
+  "contractAddress": "0x1234567890123456789012345678901234567890",
+  "network": "sepolia",
+  "timestamp": "2025-10-21T08:23:43.714Z"
+}
