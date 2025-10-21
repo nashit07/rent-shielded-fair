@@ -113,6 +113,9 @@ const LandlordDashboard = () => {
   // Get property data for all properties
   const propertyIds = propertyCount ? Array.from({ length: Number(propertyCount) }, (_, i) => i) : [];
   
+  console.log('[LandlordDashboard] Property IDs:', propertyIds);
+  console.log('[LandlordDashboard] Contract address:', import.meta.env.VITE_CONTRACT_ADDRESS);
+  
   const propertyCalls = propertyIds.map((id) => ({
     address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
     abi: CONTRACT_ABI,
@@ -120,7 +123,9 @@ const LandlordDashboard = () => {
     args: [id],
   }));
 
-  const { data: propertiesData, isLoading: propertiesLoading } = useReadContracts({
+  console.log('[LandlordDashboard] Property calls:', propertyCalls);
+
+  const { data: propertiesData, isLoading: propertiesLoading, error: propertiesError } = useReadContracts({
     contracts: propertyCalls,
     query: {
       enabled: propertyIds.length > 0,
@@ -128,6 +133,8 @@ const LandlordDashboard = () => {
   });
 
   console.log('[LandlordDashboard] Properties data:', propertiesData);
+  console.log('[LandlordDashboard] Properties loading:', propertiesLoading);
+  console.log('[LandlordDashboard] Properties error:', propertiesError);
 
   // Process properties data
   useEffect(() => {
