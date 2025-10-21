@@ -55,20 +55,40 @@ export function useApplications() {
     applicationsData.forEach((result, index) => {
       if (result.status === 'success' && result.result) {
         const data = result.result as any[];
+        console.log(`📊 Processing application ${applicationIds[index]} data:`, data);
+        
+        // Map contract data to our interface
+        // Contract returns: [isApproved, isRejected, applicationHash, moveInDate, specialRequests, applicant, propertyOwner, submittedAt, reviewedAt, priorityScore]
+        const isApproved = data[0];
+        const isRejected = data[1];
+        const applicationHash = data[2];
+        const moveInDate = data[3];
+        const specialRequests = data[4];
+        const applicant = data[5];
+        const propertyOwner = data[6];
+        const submittedAt = Number(data[7]);
+        const reviewedAt = Number(data[8]);
+        const priorityScore = Number(data[9]);
+        
+        // Determine status: 0 = pending, 1 = approved, 2 = rejected
+        let status = 0; // pending
+        if (isApproved) status = 1;
+        else if (isRejected) status = 2;
+        
         applications.push({
           id: applicationIds[index],
-          propertyId: Number(data[0]),
-          proposedRent: formatEther(BigInt(data[1])),
-          creditScore: Number(data[2]),
-          income: formatEther(BigInt(data[3])),
-          applicationHash: data[4],
-          moveInDate: new Date(Number(data[5]) * 1000).toISOString().split('T')[0],
-          specialRequests: data[6],
-          status: Number(data[7]),
-          priorityScore: Number(data[8]),
-          submittedAt: Number(data[9]),
-          reviewedAt: Number(data[10]),
-          propertyOwner: data[11],
+          propertyId: 0, // Not available in this contract function
+          proposedRent: "0", // Not available in this contract function
+          creditScore: 0, // Not available in this contract function
+          income: "0", // Not available in this contract function
+          applicationHash: applicationHash,
+          moveInDate: moveInDate,
+          specialRequests: specialRequests,
+          status: status,
+          priorityScore: priorityScore,
+          submittedAt: submittedAt,
+          reviewedAt: reviewedAt,
+          propertyOwner: propertyOwner,
         });
       }
     });
