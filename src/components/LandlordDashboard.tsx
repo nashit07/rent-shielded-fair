@@ -364,6 +364,13 @@ const LandlordDashboard = () => {
         </TabsList>
 
         <TabsContent value="properties" className="space-y-6">
+          {(() => {
+            console.log('[LandlordDashboard] Rendering properties tab:', {
+              propertiesLength: properties.length,
+              properties: properties
+            });
+            return null;
+          })()}
           {properties.length === 0 ? (
             <div className="text-center py-12">
               <MapPin className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
