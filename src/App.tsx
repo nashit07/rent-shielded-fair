@@ -10,8 +10,12 @@ import Index from "./pages/Index";
 import PropertiesPage from "./pages/PropertiesPage";
 import HowItWorksPage from "./pages/HowItWorksPage";
 import LandlordsPage from "./pages/LandlordsPage";
+import MyApplicationsPage from "./pages/MyApplicationsPage";
+import LandlordDashboardPage from "./pages/LandlordDashboardPage";
+import ApplicationDecryptionPage from "./pages/ApplicationDecryptionPage";
 import NotFound from "./pages/NotFound";
 import '@rainbow-me/rainbowkit/styles.css';
+import './utils/errorHandler'; // Initialize global error handlers
 
 const queryClient = new QueryClient();
 
@@ -23,14 +27,17 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/properties" element={<PropertiesPage />} />
-              <Route path="/how-it-works" element={<HowItWorksPage />} />
-              <Route path="/landlords" element={<LandlordsPage />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+                  <Routes>
+                    <Route path="/" element={<Index />} />
+                    <Route path="/properties" element={<PropertiesPage />} />
+                    <Route path="/how-it-works" element={<HowItWorksPage />} />
+                    <Route path="/landlords" element={<LandlordsPage />} />
+                    <Route path="/my-applications" element={<MyApplicationsPage />} />
+                    <Route path="/landlord-dashboard" element={<LandlordDashboardPage />} />
+                    <Route path="/decrypt-application" element={<ApplicationDecryptionPage />} />
+                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
           </BrowserRouter>
         </TooltipProvider>
       </RainbowKitProvider>

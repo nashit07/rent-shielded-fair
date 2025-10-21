@@ -24,11 +24,17 @@ const Header = () => {
             <Link to="/properties" className="text-foreground hover:text-primary transition-smooth font-medium">
               Browse Properties
             </Link>
+            <Link to="/my-applications" className="text-foreground hover:text-primary transition-smooth font-medium">
+              My Applications
+            </Link>
+            <Link to="/landlord-dashboard" className="text-foreground hover:text-primary transition-smooth font-medium">
+              Landlord Dashboard
+            </Link>
+            <Link to="/decrypt-application" className="text-foreground hover:text-primary transition-smooth font-medium">
+              Decrypt Data
+            </Link>
             <Link to="/how-it-works" className="text-foreground hover:text-primary transition-smooth font-medium">
               How It Works
-            </Link>
-            <Link to="/landlords" className="text-foreground hover:text-primary transition-smooth font-medium">
-              For Landlords
             </Link>
           </nav>
 
@@ -56,11 +62,17 @@ const Header = () => {
               <Link to="/properties" className="text-foreground hover:text-primary transition-smooth font-medium" onClick={() => setIsMenuOpen(false)}>
                 Browse Properties
               </Link>
+              <Link to="/my-applications" className="text-foreground hover:text-primary transition-smooth font-medium" onClick={() => setIsMenuOpen(false)}>
+                My Applications
+              </Link>
+              <Link to="/landlord-dashboard" className="text-foreground hover:text-primary transition-smooth font-medium" onClick={() => setIsMenuOpen(false)}>
+                Landlord Dashboard
+              </Link>
+              <Link to="/decrypt-application" className="text-foreground hover:text-primary transition-smooth font-medium" onClick={() => setIsMenuOpen(false)}>
+                Decrypt Data
+              </Link>
               <Link to="/how-it-works" className="text-foreground hover:text-primary transition-smooth font-medium" onClick={() => setIsMenuOpen(false)}>
                 How It Works
-              </Link>
-              <Link to="/landlords" className="text-foreground hover:text-primary transition-smooth font-medium" onClick={() => setIsMenuOpen(false)}>
-                For Landlords
               </Link>
               <div className="w-fit">
                 <ConnectButton />

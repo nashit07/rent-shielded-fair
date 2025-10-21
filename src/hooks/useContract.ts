@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther } from 'viem';
 import { fheManager } from '../lib/fhe-utils';
+import { ErrorHandler } from '../utils/errorHandler';
 
 // Contract ABI for RentShieldedFair
 const CONTRACT_ABI = [
@@ -238,7 +239,7 @@ export const useContract = () => {
 
     try {
       await writeContract({
-        address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`,
+        address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
         abi: CONTRACT_ABI,
         functionName: 'listProperty',
         args: [
@@ -280,7 +281,7 @@ export const useContract = () => {
       
       // Encrypt application data
       const { handles, inputProof } = await fheManager.encryptApplicationData(
-        process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as string,
+        import.meta.env.VITE_CONTRACT_ADDRESS as string,
         address,
         {
           proposedRent: applicationData.proposedRent,
@@ -298,7 +299,7 @@ export const useContract = () => {
       }));
 
       await writeContract({
-        address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`,
+        address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
         abi: CONTRACT_ABI,
         functionName: 'submitApplication',
         args: [
@@ -328,7 +329,7 @@ export const useContract = () => {
 
     try {
       await writeContract({
-        address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`,
+        address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
         abi: CONTRACT_ABI,
         functionName: 'reviewApplication',
         args: [BigInt(applicationId), isApproved],
@@ -360,7 +361,7 @@ export const useContract = () => {
       
       // Encrypt agreement data
       const { handles, inputProof } = await fheManager.encryptAgreementData(
-        process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as string,
+        import.meta.env.VITE_CONTRACT_ADDRESS as string,
         address,
         {
           monthlyRent: agreementData.monthlyRent,
@@ -370,7 +371,7 @@ export const useContract = () => {
       );
 
       await writeContract({
-        address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`,
+        address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
         abi: CONTRACT_ABI,
         functionName: 'createAgreement',
         args: [
@@ -409,7 +410,7 @@ export const useContract = () => {
       
       // Encrypt payment data
       const { handles, inputProof } = await fheManager.encryptPaymentData(
-        process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as string,
+        import.meta.env.VITE_CONTRACT_ADDRESS as string,
         address,
         {
           amount: paymentData.amount,
@@ -419,7 +420,7 @@ export const useContract = () => {
       );
 
       await writeContract({
-        address: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`,
+        address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
         abi: CONTRACT_ABI,
         functionName: 'makePayment',
         args: [
@@ -440,9 +441,96 @@ export const useContract = () => {
     }
   };
 
+  const submitEncryptedBid = async (bidData: {
+    propertyId: number;
+    bidAmount: number;
+    creditScore: number;
+    income: number;
+    message: string;
+    moveInDate: string;
+  }) => {
+    if (!isConnected || !address) {
+      throw new Error('Please connect your wallet first');
+    }
+
+    console.log('🚀 Starting encrypted bid submission process...');
+    console.log('📊 Bid data:', bidData);
+    console.log('👤 User address:', address);
+    console.log('🔗 Contract address:', import.meta.env.VITE_CONTRACT_ADDRESS);
+
+    setIsSubmitting(true);
+
+    try {
+      console.log('🔄 Step 1: Initializing FHE manager...');
+      await fheManager.initialize();
+      console.log('✅ FHE manager initialized');
+      
+      console.log('🔄 Step 2: Encrypting application data...');
+      const { handles, inputProof } = await fheManager.encryptApplicationData(
+        import.meta.env.VITE_CONTRACT_ADDRESS as string,
+        address,
+        {
+          proposedRent: bidData.bidAmount,
+          creditScore: bidData.creditScore,
+          income: bidData.income
+        }
+      );
+      console.log('✅ Application data encrypted successfully');
+
+      console.log('🔄 Step 3: Preparing contract call...');
+      // Create application hash from message and moveInDate
+      const applicationData = `${bidData.message}|${bidData.moveInDate}`;
+      const applicationHash = btoa(applicationData); // Simple encoding for demo
+      
+      const contractArgs = [
+        BigInt(bidData.propertyId),
+        handles[0], // proposedRent
+        handles[1], // creditScore
+        handles[2], // income
+        applicationHash, // Combined message and moveInDate
+        inputProof
+      ];
+      console.log('📋 Contract arguments:', contractArgs);
+      console.log('📋 Argument count:', contractArgs.length);
+      console.log('📋 Expected count: 6');
+      console.log('📋 Application hash:', applicationHash);
+
+      console.log('🔄 Step 4: Calling contract...');
+      console.log('📋 Contract call details:', {
+        address: import.meta.env.VITE_CONTRACT_ADDRESS,
+        functionName: 'submitApplication',
+        args: contractArgs
+      });
+      
+      const result = await writeContract({
+        address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
+        abi: CONTRACT_ABI,
+        functionName: 'submitApplication',
+        args: contractArgs,
+      });
+      
+      console.log('✅ Contract call submitted successfully');
+      console.log('📋 Transaction hash:', result);
+      
+      // Wait for transaction confirmation
+      console.log('🔄 Waiting for transaction confirmation...');
+      // The useWaitForTransactionReceipt hook will handle this automatically
+    } catch (err) {
+      ErrorHandler.logError('Encrypted Bid Submission', err, {
+        bidData,
+        userAddress: address,
+        contractAddress: import.meta.env.VITE_CONTRACT_ADDRESS
+      });
+      throw err;
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return {
     listProperty,
     submitApplication,
+    submitEncryptedBid,
     reviewApplication,
     createAgreement,
     makePayment,

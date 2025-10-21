@@ -1,53 +1,39 @@
 import PropertyCard from "./PropertyCard";
 import { Button } from "@/components/ui/button";
-import { Filter, Search } from "lucide-react";
+import { Filter, Search, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { usePropertiesReal } from "@/hooks/usePropertiesReal";
 import apartment1 from "@/assets/apartment-1.jpg";
 import apartment2 from "@/assets/apartment-2.jpg";
 import apartment3 from "@/assets/apartment-3.jpg";
 
 const PropertyListings = () => {
-  const properties = [
-    {
-      id: "1",
-      title: "Downtown Luxury Studio",
-      location: "Manhattan, NY",
-      price: "$3,200/mo",
-      bedrooms: 1,
-      bathrooms: 1,
-      area: 650,
-      image: apartment1,
-      deadline: "Dec 20, 2024",
-      isShielded: true,
-      propertyId: 1
-    },
-    {
-      id: "2", 
-      title: "Skyline Penthouse",
-      location: "Midtown, NY",
-      price: "$8,500/mo",
-      bedrooms: 3,
-      bathrooms: 2,
-      area: 1400,
-      image: apartment2,
-      deadline: "Dec 18, 2024",
-      isShielded: true,
-      propertyId: 2
-    },
-    {
-      id: "3",
-      title: "Industrial Loft",
-      location: "Brooklyn, NY", 
-      price: "$2,800/mo",
-      bedrooms: 2,
-      bathrooms: 1,
-      area: 950,
-      image: apartment3,
-      deadline: "Dec 22, 2024",
-      isShielded: true,
-      propertyId: 3
-    }
-  ];
+  const { properties, loading: isLoading, error } = usePropertiesReal();
+  
+  // Default images for properties
+  const defaultImages = [apartment1, apartment2, apartment3];
+  
+  // Convert contract properties to display format
+  const displayProperties = properties.map((property, index) => ({
+    id: property.id.toString(),
+    title: property.name,
+    location: property.location,
+    price: `$${property.monthlyRent.toLocaleString()}/mo`,
+    bedrooms: property.bedrooms,
+    bathrooms: property.bathrooms,
+    area: property.propertySize,
+    image: defaultImages[index % defaultImages.length],
+    deadline: new Date(property.applicationDeadline * 1000).toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric' 
+    }),
+    isShielded: true,
+    propertyId: property.id,
+    isAvailable: property.isAvailable,
+    propertyType: property.propertyType || 'apartment',
+    amenities: property.amenities || '[]'
+  }));
 
   return (
     <section className="py-20 px-4">
@@ -80,11 +66,28 @@ const PropertyListings = () => {
         </div>
 
         {/* Property Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
-          {properties.map((property) => (
-            <PropertyCard key={property.id} {...property} />
-          ))}
-        </div>
+        {isLoading ? (
+          <div className="flex justify-center items-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <span className="ml-2 text-lg">Loading properties...</span>
+          </div>
+        ) : error ? (
+          <div className="text-center py-20">
+            <p className="text-red-500 text-lg">Error loading properties: {error}</p>
+            <p className="text-muted-foreground mt-2">Please check your connection and try again.</p>
+          </div>
+        ) : displayProperties.length === 0 ? (
+          <div className="text-center py-20">
+            <p className="text-lg text-muted-foreground">No properties available at the moment.</p>
+            <p className="text-sm text-muted-foreground mt-2">Check back later for new listings.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
+            {displayProperties.map((property) => (
+              <PropertyCard key={property.id} {...property} />
+            ))}
+          </div>
+        )}
 
         {/* Load More */}
         <div className="text-center">

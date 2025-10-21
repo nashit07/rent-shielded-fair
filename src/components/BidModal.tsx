@@ -20,7 +20,14 @@ interface BidModalProps {
 const BidModal = ({ isOpen, onClose, propertyTitle, propertyPrice, propertyId }: BidModalProps) => {
   const [bidAmount, setBidAmount] = useState("");
   const [message, setMessage] = useState("");
-  const [moveInDate, setMoveInDate] = useState("");
+  // Set default date to 30 days from now
+  const getDefaultDate = () => {
+    const date = new Date();
+    date.setDate(date.getDate() + 30);
+    return date.toISOString().split('T')[0];
+  };
+  
+  const [moveInDate, setMoveInDate] = useState(getDefaultDate());
   const [creditScore, setCreditScore] = useState("");
   const [income, setIncome] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);

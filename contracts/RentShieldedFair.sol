@@ -19,6 +19,10 @@ contract RentShieldedFair is SepoliaConfig {
         string name;
         string description;
         string location;
+        string propertyType;        // "apartment", "house", "condo", etc.
+        string amenities;           // JSON string of amenities
+        uint256 leaseDuration;      // Minimum lease duration in days
+        uint256 applicationDeadline; // Deadline for applications
         address owner;
         uint256 createdAt;
         uint256 updatedAt;
@@ -33,10 +37,34 @@ contract RentShieldedFair is SepoliaConfig {
         bool isApproved;
         bool isRejected;
         string applicationHash;
+        string moveInDate;           // When tenant wants to move in
+        string specialRequests;      // Special requirements or requests
         address applicant;
         address propertyOwner;
         uint256 submittedAt;
         uint256 reviewedAt;
+        uint256 priorityScore;       // Calculated priority score
+    }
+    
+    // Bidding system for rental auctions
+    struct Bid {
+        uint256 bidId;
+        uint256 propertyId;
+        address bidder;
+        uint256 bidAmount;           // Public bid amount
+        uint256 submittedAt;
+        bool isActive;               // Whether bid is still active
+        string bidderMessage;        // Optional message from bidder
+    }
+    
+    struct BiddingSession {
+        uint256 propertyId;
+        uint256 startTime;
+        uint256 endTime;
+        uint256 highestBid;
+        address highestBidder;
+        bool isActive;
+        uint256 totalBids;
     }
     
     struct RentalAgreement {
@@ -77,8 +105,15 @@ contract RentShieldedFair is SepoliaConfig {
     mapping(address => euint32) public tenantReputation;
     mapping(address => euint32) public landlordReputation;
     
+    // Bidding system mappings
+    mapping(uint256 => Bid) public bids;
+    mapping(uint256 => BiddingSession) public biddingSessions;
+    mapping(uint256 => uint256[]) public propertyBids; // propertyId => bidIds[]
+    mapping(address => uint256[]) public userBids; // bidder => bidIds[]
+    
     uint256 public propertyCounter;
     uint256 public applicationCounter;
+    uint256 public bidCounter;
     uint256 public agreementCounter;
     uint256 public paymentCounter;
     
@@ -106,7 +141,11 @@ contract RentShieldedFair is SepoliaConfig {
         uint256 _securityDeposit,
         uint256 _propertySize,
         uint8 _bedrooms,
-        uint8 _bathrooms
+        uint8 _bathrooms,
+        string memory _propertyType,
+        string memory _amenities,
+        uint256 _leaseDuration,
+        uint256 _applicationDeadline
     ) public returns (uint256) {
         require(bytes(_name).length > 0, "Property name cannot be empty");
         require(_monthlyRent > 0, "Monthly rent must be positive");
@@ -129,6 +168,10 @@ contract RentShieldedFair is SepoliaConfig {
             name: _name,
             description: _description,
             location: _location,
+            propertyType: _propertyType,
+            amenities: _amenities,
+            leaseDuration: _leaseDuration,
+            applicationDeadline: _applicationDeadline,
             owner: msg.sender,
             createdAt: block.timestamp,
             updatedAt: block.timestamp
@@ -144,6 +187,8 @@ contract RentShieldedFair is SepoliaConfig {
         externalEuint32 creditScore,
         externalEuint32 income,
         string memory applicationHash,
+        string memory moveInDate,
+        string memory specialRequests,
         bytes calldata inputProof
     ) public returns (uint256) {
         require(properties[propertyId].owner != address(0), "Property does not exist");
@@ -165,10 +210,13 @@ contract RentShieldedFair is SepoliaConfig {
             isApproved: false,
             isRejected: false,
             applicationHash: applicationHash,
+            moveInDate: moveInDate,
+            specialRequests: specialRequests,
             applicant: msg.sender,
             propertyOwner: properties[propertyId].owner,
             submittedAt: block.timestamp,
-            reviewedAt: 0
+            reviewedAt: 0,
+            priorityScore: 0
         });
         
         // Set ACL permissions for encrypted application data
@@ -381,6 +429,80 @@ contract RentShieldedFair is SepoliaConfig {
             application.propertyOwner,
             application.submittedAt
         );
+    }
+    
+    // Get user's applications
+    function getUserApplications(address user) public view returns (uint256[] memory) {
+        uint256[] memory userApplications = new uint256[](applicationCounter);
+        uint256 count = 0;
+        
+        for (uint256 i = 0; i < applicationCounter; i++) {
+            if (applications[i].applicant == user) {
+                userApplications[count] = i;
+                count++;
+            }
+        }
+        
+        // Resize array to actual count
+        uint256[] memory result = new uint256[](count);
+        for (uint256 i = 0; i < count; i++) {
+            result[i] = userApplications[i];
+        }
+        
+        return result;
+    }
+    
+    // Get detailed application info for users (without encrypted data)
+    function getDetailedApplicationInfo(uint256 applicationId) public view returns (
+        bool isApproved,
+        bool isRejected,
+        string memory applicationHash,
+        string memory moveInDate,
+        string memory specialRequests,
+        address applicant,
+        address propertyOwner,
+        uint256 submittedAt,
+        uint256 reviewedAt,
+        uint256 priorityScore
+    ) {
+        require(applications[applicationId].applicant != address(0), "Application does not exist");
+        
+        RentalApplication storage application = applications[applicationId];
+        return (
+            application.isApproved,
+            application.isRejected,
+            application.applicationHash,
+            application.moveInDate,
+            application.specialRequests,
+            application.applicant,
+            application.propertyOwner,
+            application.submittedAt,
+            application.reviewedAt,
+            application.priorityScore
+        );
+    }
+    
+    // Get applications for a specific property (for property owners)
+    function getPropertyApplications(uint256 propertyId) public view returns (uint256[] memory) {
+        require(properties[propertyId].owner != address(0), "Property does not exist");
+        require(properties[propertyId].owner == msg.sender, "Only property owner can view applications");
+        
+        uint256[] memory propertyApplications = new uint256[](applicationCounter);
+        uint256 count = 0;
+        
+        for (uint256 i = 0; i < applicationCounter; i++) {
+            // For now, return all applications - in production, this would need proper FHE decryption
+            propertyApplications[count] = i;
+            count++;
+        }
+        
+        // Resize array to actual count
+        uint256[] memory result = new uint256[](count);
+        for (uint256 i = 0; i < count; i++) {
+            result[i] = propertyApplications[i];
+        }
+        
+        return result;
     }
     
     function getApplicationEncryptedData(uint256 applicationId) public view returns (

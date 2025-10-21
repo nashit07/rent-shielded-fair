@@ -20,7 +20,7 @@ async function main() {
   const RentShieldedFair = await ethers.getContractFactory("RentShieldedFair");
   const contract = RentShieldedFair.attach(deploymentInfo.contractAddress);
 
-  // Sample property data
+  // Sample property data with enhanced fields
   const properties = [
     {
       name: "Luxury Downtown Apartment",
@@ -30,7 +30,11 @@ async function main() {
       securityDeposit: 7000,
       propertySize: 1200,
       bedrooms: 2,
-      bathrooms: 2
+      bathrooms: 2,
+      propertyType: "apartment",
+      amenities: '["gym", "pool", "concierge", "parking", "balcony"]',
+      leaseDuration: 365, // 1 year in days
+      applicationDeadline: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60) // 30 days from now
     },
     {
       name: "Cozy Suburban House",
@@ -40,7 +44,11 @@ async function main() {
       securityDeposit: 8400,
       propertySize: 1800,
       bedrooms: 3,
-      bathrooms: 2
+      bathrooms: 2,
+      propertyType: "house",
+      amenities: '["garage", "garden", "fireplace", "hardwood_floors"]',
+      leaseDuration: 365,
+      applicationDeadline: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60)
     },
     {
       name: "Modern Studio Loft",
@@ -50,7 +58,11 @@ async function main() {
       securityDeposit: 5600,
       propertySize: 800,
       bedrooms: 1,
-      bathrooms: 1
+      bathrooms: 1,
+      propertyType: "studio",
+      amenities: '["high_ceilings", "exposed_brick", "modern_appliances"]',
+      leaseDuration: 365,
+      applicationDeadline: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60)
     },
     {
       name: "Family Townhouse",
@@ -60,7 +72,11 @@ async function main() {
       securityDeposit: 7600,
       propertySize: 2200,
       bedrooms: 4,
-      bathrooms: 3
+      bathrooms: 3,
+      propertyType: "townhouse",
+      amenities: '["patio", "modern_kitchen", "family_room", "parking"]',
+      leaseDuration: 365,
+      applicationDeadline: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60)
     },
     {
       name: "Penthouse Suite",
@@ -70,7 +86,11 @@ async function main() {
       securityDeposit: 11000,
       propertySize: 1500,
       bedrooms: 2,
-      bathrooms: 2
+      bathrooms: 2,
+      propertyType: "penthouse",
+      amenities: '["rooftop", "city_view", "premium_finishes", "concierge"]',
+      leaseDuration: 365,
+      applicationDeadline: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60)
     }
   ];
 
@@ -89,7 +109,11 @@ async function main() {
         property.securityDeposit,
         property.propertySize,
         property.bedrooms,
-        property.bathrooms
+        property.bathrooms,
+        property.propertyType,
+        property.amenities,
+        property.leaseDuration,
+        property.applicationDeadline
       );
       
       await tx.wait();
@@ -108,6 +132,12 @@ async function main() {
   console.log("\n🎉 Property initialization completed!");
   console.log(`Total properties added: ${properties.length}`);
   console.log(`Contract address: ${deploymentInfo.contractAddress}`);
+  console.log("\n📋 Note: All properties are listed by the deployer account.");
+  console.log("To set a specific owner address (0x55a5233414043d10cc7b93875b34afc93e017a63), you would need to:");
+  console.log("1. Deploy the contract with that address as the deployer, OR");
+  console.log("2. Add a transferOwnership function to the contract, OR");
+  console.log("3. Use a different deployment script that sets the owner directly");
+  console.log("\nFor now, the deployer account is the owner of all properties.");
 }
 
 main()

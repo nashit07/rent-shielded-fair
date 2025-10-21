@@ -51,23 +51,50 @@ export class FHEManager {
     }
 
     try {
-      console.log('Encrypting application data:', data);
-      
+      console.log('🚀 Starting FHE application encryption process...');
+      console.log('📊 Input parameters:', data);
+      console.log('🔗 Contract address:', contractAddress);
+      console.log('👤 User address:', userAddress);
+
+      // Validate input parameters
+      if (!data.proposedRent || data.proposedRent <= 0) {
+        throw new Error('Proposed rent must be positive');
+      }
+      if (!data.creditScore || data.creditScore < 300 || data.creditScore > 850) {
+        throw new Error('Credit score must be between 300 and 850');
+      }
+      if (!data.income || data.income <= 0) {
+        throw new Error('Income must be positive');
+      }
+
+      console.log('🔄 Step 1: Creating encrypted input...');
       const input = this.instance.createEncryptedInput(contractAddress, userAddress);
+      
+      console.log('🔄 Step 2: Adding proposed rent to encrypted input...');
       input.add32(BigInt(data.proposedRent));
+      
+      console.log('🔄 Step 3: Adding credit score to encrypted input...');
       input.add32(BigInt(data.creditScore));
+      
+      console.log('🔄 Step 4: Adding income to encrypted input...');
       input.add32(BigInt(data.income));
       
+      console.log('🔄 Step 5: Encrypting data...');
       const encryptedInput = await input.encrypt();
-      
+      console.log('✅ Encryption completed, handles count:', encryptedInput.handles.length);
+
+      // Convert handles to proper hex format
       const handles = encryptedInput.handles.map((handle: any) => this.convertHex(handle));
       const inputProof = `0x${Array.from(encryptedInput.inputProof)
         .map(b => b.toString(16).padStart(2, '0')).join('')}`;
       
-      console.log('Application data encrypted successfully');
+      console.log('✅ Application data encrypted successfully');
+      console.log('📋 Handles:', handles);
+      console.log('🔐 Input proof length:', inputProof.length);
+      
       return { handles, inputProof };
     } catch (error) {
-      console.error('Failed to encrypt application data:', error);
+      console.error('❌ Failed to encrypt application data:', error);
       throw error;
     }
   }
