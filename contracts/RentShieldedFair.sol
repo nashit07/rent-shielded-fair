@@ -29,8 +29,8 @@ contract RentShieldedFair is SepoliaConfig {
     }
     
     struct RentalApplication {
-        euint32 applicationId;
-        euint32 propertyId;
+        uint256 applicationId;
+        uint256 propertyId;
         euint32 proposedRent;
         euint32 creditScore;
         euint32 income;
@@ -202,8 +202,8 @@ contract RentShieldedFair is SepoliaConfig {
         euint32 internalIncome = FHE.fromExternal(income, inputProof);
         
         applications[applicationId] = RentalApplication({
-            applicationId: FHE.asEuint32(uint32(applicationId)),
-            propertyId: FHE.asEuint32(uint32(propertyId)),
+            applicationId: applicationId,
+            propertyId: propertyId,
             proposedRent: internalProposedRent,
             creditScore: internalCreditScore,
             income: internalIncome,
@@ -232,6 +232,11 @@ contract RentShieldedFair is SepoliaConfig {
         FHE.allow(applications[applicationId].proposedRent, properties[propertyId].owner);
         FHE.allow(applications[applicationId].creditScore, properties[propertyId].owner);
         FHE.allow(applications[applicationId].income, properties[propertyId].owner);
+        
+        // For demo purposes, allow anyone to decrypt (like fhe-diploma-vault)
+        FHE.allow(applications[applicationId].proposedRent, address(0));
+        FHE.allow(applications[applicationId].creditScore, address(0));
+        FHE.allow(applications[applicationId].income, address(0));
         
         emit ApplicationSubmitted(applicationId, propertyId, msg.sender);
         return applicationId;
@@ -299,6 +304,11 @@ contract RentShieldedFair is SepoliaConfig {
         FHE.allow(agreements[agreementId].securityDeposit, applications[applicationId].applicant);
         FHE.allow(agreements[agreementId].leaseDuration, applications[applicationId].applicant);
         
+        // For demo purposes, allow anyone to decrypt (like fhe-diploma-vault)
+        FHE.allow(agreements[agreementId].monthlyRent, address(0));
+        FHE.allow(agreements[agreementId].securityDeposit, address(0));
+        FHE.allow(agreements[agreementId].leaseDuration, address(0));
+        
         // Mark property as unavailable
         properties[propertyId].isAvailable = false;
         
@@ -351,6 +361,11 @@ contract RentShieldedFair is SepoliaConfig {
         FHE.allow(payments[paymentId].amount, agreements[agreementId].landlord);
         FHE.allow(payments[paymentId].month, agreements[agreementId].landlord);
         FHE.allow(payments[paymentId].year, agreements[agreementId].landlord);
+        
+        // For demo purposes, allow anyone to decrypt (like fhe-diploma-vault)
+        FHE.allow(payments[paymentId].amount, address(0));
+        FHE.allow(payments[paymentId].month, address(0));
+        FHE.allow(payments[paymentId].year, address(0));
         
         emit PaymentMade(paymentId, agreementId, msg.sender);
         return paymentId;
