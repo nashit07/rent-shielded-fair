@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, MapPin, DollarSign, Users, Clock, CheckCircle, XCircle, Plus } from "lucide-react";
+import { Calendar, MapPin, DollarSign, Users, Clock, CheckCircle, XCircle, Plus, User } from "lucide-react";
 
 // Contract ABI for reading property and application data
 const CONTRACT_ABI = [
