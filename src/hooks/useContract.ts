@@ -88,6 +88,16 @@ const CONTRACT_ABI = [
         "type": "string"
       },
       {
+        "internalType": "string",
+        "name": "moveInDate",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "specialRequests",
+        "type": "string"
+      },
+      {
         "internalType": "bytes",
         "name": "inputProof",
         "type": "bytes"
@@ -448,6 +458,7 @@ export const useContract = () => {
     income: number;
     message: string;
     moveInDate: string;
+    specialRequests?: string;
   }) => {
     if (!isConnected || !address) {
       throw new Error('Please connect your wallet first');
@@ -484,15 +495,17 @@ export const useContract = () => {
       
       const contractArgs = [
         BigInt(bidData.propertyId),
-        handles[0], // proposedRent
-        handles[1], // creditScore
-        handles[2], // income
+        handles[0] as `0x${string}`, // proposedRent
+        handles[1] as `0x${string}`, // creditScore
+        handles[2] as `0x${string}`, // income
         applicationHash, // Combined message and moveInDate
-        inputProof
-      ];
+        bidData.moveInDate, // moveInDate
+        bidData.specialRequests || '', // specialRequests
+        inputProof as `0x${string}`
+      ] as const;
       console.log('📋 Contract arguments:', contractArgs);
       console.log('📋 Argument count:', contractArgs.length);
-      console.log('📋 Expected count: 6');
+      console.log('📋 Expected count: 8');
       console.log('📋 Application hash:', applicationHash);
 
       console.log('🔄 Step 4: Calling contract...');
