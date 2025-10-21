@@ -1,9 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, MapPin, DollarSign, User, Clock, CheckCircle, XCircle, Shield } from "lucide-react";
+import { Calendar, MapPin, DollarSign, User, Clock, CheckCircle, XCircle, Shield, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useApplications } from '../hooks/useApplications';
 import { useZamaInstance } from '../hooks/useZamaInstance';
 
@@ -11,6 +11,11 @@ const MyApplications = () => {
   const { address } = useAccount();
   const { applications, isLoading, getStatusText, getStatusColor } = useApplications();
   const { instance, isLoading: fheLoading, error: fheError, isInitialized, initializeZama } = useZamaInstance();
+  
+  // State for managing decrypted data
+  const [decryptedData, setDecryptedData] = useState<Record<number, any>>({});
+  const [decryptingStates, setDecryptingStates] = useState<Record<number, boolean>>({});
+  const [decryptErrors, setDecryptErrors] = useState<Record<number, string>>({});
 
   console.log('[MyApplications] Component rendered with:', {
     address,
@@ -35,6 +40,59 @@ const MyApplications = () => {
       initializeZama();
     }
   }, [isInitialized, fheLoading, fheError, initializeZama]);
+
+  // Function to decrypt application data
+  const decryptApplicationData = async (applicationId: number) => {
+    if (!instance || !isInitialized) {
+      console.error('[MyApplications] FHE instance not ready');
+      setDecryptErrors(prev => ({ ...prev, [applicationId]: 'Encryption service not ready' }));
+      return;
+    }
+
+    console.log(`[MyApplications] Starting decryption for application ${applicationId}...`);
+    
+    // Set loading state
+    setDecryptingStates(prev => ({ ...prev, [applicationId]: true }));
+    setDecryptErrors(prev => ({ ...prev, [applicationId]: '' }));
+
+    try {
+      // For demo purposes, we'll simulate decryption with mock data
+      // In a real implementation, you would:
+      // 1. Get the encrypted data from the contract
+      // 2. Use the FHE instance to decrypt it
+      // 3. Display the decrypted sensitive information
+      
+      console.log('[MyApplications] Simulating FHE decryption...');
+      
+      // Simulate decryption delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Mock decrypted data (in real implementation, this would come from FHE decryption)
+      const mockDecryptedData = {
+        proposedRent: 3500,
+        creditScore: 750,
+        income: 85000,
+        encryptedData: {
+          proposedRent: '0x1234567890abcdef...',
+          creditScore: '0xabcdef1234567890...',
+          income: '0x9876543210fedcba...'
+        }
+      };
+      
+      console.log(`[MyApplications] Decryption completed for application ${applicationId}:`, mockDecryptedData);
+      
+      setDecryptedData(prev => ({ ...prev, [applicationId]: mockDecryptedData }));
+      
+    } catch (error) {
+      console.error(`[MyApplications] Decryption failed for application ${applicationId}:`, error);
+      setDecryptErrors(prev => ({ 
+        ...prev, 
+        [applicationId]: error instanceof Error ? error.message : 'Decryption failed' 
+      }));
+    } finally {
+      setDecryptingStates(prev => ({ ...prev, [applicationId]: false }));
+    }
+  };
 
   const getStatusBadge = (status: number) => {
     const statusText = getStatusText(status);
@@ -191,19 +249,81 @@ const MyApplications = () => {
               {/* Decrypt button for sensitive data */}
               {isInitialized && application.applicationHash && (
                 <div className="mt-4 pt-4 border-t">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => {
-                      console.log('[MyApplications] Decrypting application data...');
-                      // Here you would implement the actual decryption logic
-                      // using the FHE instance
-                    }}
-                    className="w-full"
-                  >
-                    <Shield className="w-4 h-4 mr-2" />
-                    Decrypt Sensitive Data
-                  </Button>
+                  {!decryptedData[application.id] ? (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => decryptApplicationData(application.id)}
+                      disabled={decryptingStates[application.id]}
+                      className="w-full"
+                    >
+                      {decryptingStates[application.id] ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Decrypting...
+                        </>
+                      ) : (
+                        <>
+                          <Shield className="w-4 h-4 mr-2" />
+                          Decrypt Sensitive Data
+                        </>
+                      )}
+                    </Button>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-green-600 flex items-center gap-2">
+                          <Eye className="w-4 h-4" />
+                          Sensitive Data Decrypted
+                        </span>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => {
+                            setDecryptedData(prev => {
+                              const newData = { ...prev };
+                              delete newData[application.id];
+                              return newData;
+                            });
+                          }}
+                        >
+                          <EyeOff className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-3 space-y-2">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                          <div>
+                            <span className="font-medium text-green-800">Proposed Rent:</span>
+                            <div className="text-green-700">${decryptedData[application.id].proposedRent.toLocaleString()}/month</div>
+                          </div>
+                          <div>
+                            <span className="font-medium text-green-800">Credit Score:</span>
+                            <div className="text-green-700">{decryptedData[application.id].creditScore}</div>
+                          </div>
+                          <div>
+                            <span className="font-medium text-green-800">Annual Income:</span>
+                            <div className="text-green-700">${decryptedData[application.id].income.toLocaleString()}</div>
+                          </div>
+                        </div>
+                        
+                        <div className="pt-2 border-t border-green-200">
+                          <div className="text-xs text-green-600">
+                            <span className="font-medium">Encrypted Data Hash:</span>
+                            <div className="font-mono mt-1 break-all">
+                              {decryptedData[application.id].encryptedData.proposedRent}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {decryptErrors[application.id] && (
+                    <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-600">
+                      <span className="font-medium">Decryption Error:</span> {decryptErrors[application.id]}
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
