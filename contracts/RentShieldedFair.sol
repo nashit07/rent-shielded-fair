@@ -520,6 +520,17 @@ contract RentShieldedFair is SepoliaConfig {
         return result;
     }
     
+    // Get all applications (for frontend filtering)
+    function getAllApplications() public view returns (uint256[] memory) {
+        uint256[] memory allApplications = new uint256[](applicationCounter);
+        
+        for (uint256 i = 0; i < applicationCounter; i++) {
+            allApplications[i] = i;
+        }
+        
+        return allApplications;
+    }
+    
     function getApplicationEncryptedData(uint256 applicationId) public view returns (
         euint32 proposedRent,
         euint32 creditScore,

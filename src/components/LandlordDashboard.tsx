@@ -45,6 +45,13 @@ const CONTRACT_ABI = [
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "getAllApplications",
+    "outputs": [{"internalType": "uint256[]", "name": "", "type": "uint256[]"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [{"internalType": "uint256", "name": "applicationId", "type": "uint256"}],
     "name": "getDetailedApplicationInfo",
     "outputs": [
@@ -194,29 +201,17 @@ const LandlordDashboard = () => {
     }
   }, [propertiesData, address]);
 
-  // Get applications for each property
-  // Note: getPropertyApplications requires msg.sender to be the property owner
-  // Since we can't pass msg.sender in useReadContracts, we'll skip this for now
-  // and show a message that applications need to be viewed differently
-  const applicationCalls: any[] = []; // Empty array since we can't call getPropertyApplications
-
-  const { data: applicationsData, isLoading: applicationsLoading } = useReadContracts({
-    contracts: applicationCalls,
-    query: {
-      enabled: false, // Disabled since we can't call getPropertyApplications
-    },
+  // Get all applications and filter by property owner
+  const { data: allApplicationsData, isLoading: applicationsLoading } = useReadContract({
+    address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
+    abi: CONTRACT_ABI,
+    functionName: 'getAllApplications',
   });
 
-  console.log('[LandlordDashboard] Applications data:', applicationsData);
+  console.log('[LandlordDashboard] All applications data:', allApplicationsData);
 
   // Get detailed application info for all applications
-  const allApplicationIds = applicationsData?.flatMap((result, index) => {
-    if (result.status === 'success' && result.result) {
-      const applicationIds = result.result as number[];
-      return applicationIds;
-    }
-    return [];
-  }) || [];
+  const allApplicationIds = allApplicationsData || [];
 
   const detailedApplicationCalls = allApplicationIds.map(appId => ({
     address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
@@ -236,10 +231,10 @@ const LandlordDashboard = () => {
 
   // Process applications data
   useEffect(() => {
-    if (detailedApplicationsData && allApplicationIds.length > 0) {
+    if (detailedApplicationsData && allApplicationIds.length > 0 && address) {
       console.log('📊 Processing detailed applications data...');
       
-      const allApplications: ApplicationInfo[] = [];
+      const landlordApplications: ApplicationInfo[] = [];
       
       detailedApplicationsData.forEach((result, index) => {
         if (result.status === 'success' && result.result) {
@@ -261,29 +256,36 @@ const LandlordDashboard = () => {
           const reviewedAt = Number(data[8]);
           const priorityScore = Number(data[9]);
           
-          // Determine status: 0 = pending, 1 = approved, 2 = rejected
-          let status = 0; // pending
-          if (isApproved) status = 1;
-          else if (isRejected) status = 2;
-          
-          allApplications.push({
-            id: appId,
-            applicant: applicant,
-            moveInDate: moveInDate,
-            specialRequests: specialRequests,
-            status: status,
-            priorityScore: priorityScore,
-            submittedAt: submittedAt,
-            reviewedAt: reviewedAt,
-            propertyOwner: propertyOwner
-          });
+          // Only include applications for properties owned by the current landlord
+          if (propertyOwner.toLowerCase() === address.toLowerCase()) {
+            console.log(`✅ Application ${appId} belongs to landlord`);
+            
+            // Determine status: 0 = pending, 1 = approved, 2 = rejected
+            let status = 0; // pending
+            if (isApproved) status = 1;
+            else if (isRejected) status = 2;
+            
+            landlordApplications.push({
+              id: appId,
+              applicant: applicant,
+              moveInDate: moveInDate,
+              specialRequests: specialRequests,
+              status: status,
+              priorityScore: priorityScore,
+              submittedAt: submittedAt,
+              reviewedAt: reviewedAt,
+              propertyOwner: propertyOwner
+            });
+          } else {
+            console.log(`❌ Application ${appId} not for landlord's properties`);
+          }
         }
       });
       
-      console.log(`✅ Found ${allApplications.length} total applications with detailed data`);
-      setApplications(allApplications);
+      console.log(`✅ Found ${landlordApplications.length} applications for landlord`);
+      setApplications(landlordApplications);
     }
-  }, [detailedApplicationsData, allApplicationIds]);
+  }, [detailedApplicationsData, allApplicationIds, address]);
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleDateString('en-US', {
@@ -352,7 +354,7 @@ const LandlordDashboard = () => {
             My Properties ({properties.length})
           </Badge>
           <Badge variant="outline" className="text-sm">
-            Applications (View via Contract)
+            Applications ({applications.length})
           </Badge>
         </div>
       </div>
@@ -445,26 +447,73 @@ const LandlordDashboard = () => {
         </TabsContent>
 
         <TabsContent value="applications" className="space-y-6">
-          <div className="text-center py-12">
-            <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Application Management</h3>
-            <p className="text-muted-foreground mb-4">
-              To view and manage applications for your properties, you'll need to use the contract's 
-              <code className="bg-gray-100 px-2 py-1 rounded text-sm">getPropertyApplications</code> function directly.
-            </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-2xl mx-auto">
-              <h4 className="font-medium text-blue-900 mb-2">How to view applications:</h4>
-              <ol className="text-left text-sm text-blue-800 space-y-1">
-                <li>1. Connect to the contract using a blockchain explorer</li>
-                <li>2. Call <code>getPropertyApplications(propertyId)</code> for each property</li>
-                <li>3. Use the returned application IDs to get detailed information</li>
-                <li>4. Call <code>getDetailedApplicationInfo(applicationId)</code> for each application</li>
-              </ol>
+          {applications.length === 0 ? (
+            <div className="text-center py-12">
+              <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No Applications Found</h3>
+              <p className="text-muted-foreground">No applications have been submitted for your properties yet.</p>
             </div>
-            <p className="text-sm text-muted-foreground mt-4">
-              This limitation exists because the contract requires the property owner to be the caller (msg.sender).
-            </p>
-          </div>
+          ) : (
+            <div className="grid gap-6">
+              {applications.map((application) => (
+                <Card key={application.id} className="hover:shadow-md transition-shadow">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          Application #{application.id}
+                          <Badge className={getStatusColor(application.status)}>
+                            {getStatusText(application.status)}
+                          </Badge>
+                        </CardTitle>
+                        <CardDescription className="mt-1">
+                          Submitted on {formatDate(application.submittedAt)}
+                        </CardDescription>
+                      </div>
+                      <div className="text-right text-sm text-muted-foreground">
+                        <div>Priority Score: {application.priorityScore}</div>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm">
+                          <User className="w-4 h-4 text-muted-foreground" />
+                          <span className="font-medium">Applicant:</span>
+                          <span className="font-mono text-xs">{application.applicant}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <Calendar className="w-4 h-4 text-muted-foreground" />
+                          <span className="font-medium">Move-in Date:</span>
+                          <span>{application.moveInDate}</span>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        {application.specialRequests && (
+                          <div className="text-sm">
+                            <span className="font-medium">Special Requests:</span>
+                            <p className="text-muted-foreground mt-1">{application.specialRequests}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-4 pt-4 border-t flex gap-2">
+                      <Button variant="outline" size="sm">
+                        View Details
+                      </Button>
+                      <Button size="sm" className="bg-green-600 hover:bg-green-700">
+                        Approve
+                      </Button>
+                      <Button size="sm" variant="destructive">
+                        Reject
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>
