@@ -323,6 +323,14 @@ const LandlordDashboard = () => {
     );
   }
 
+  console.log('[LandlordDashboard] Render state:', {
+    isLoading,
+    countLoading,
+    propertiesLoading,
+    propertiesLength: properties.length,
+    address
+  });
+
   if (isLoading || countLoading || propertiesLoading) {
     return (
       <div className="flex justify-center items-center py-12">
