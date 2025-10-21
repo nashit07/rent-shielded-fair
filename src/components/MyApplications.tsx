@@ -42,7 +42,7 @@ const MyApplications = () => {
     }
   }, [isInitialized, fheLoading, fheError, initializeZama]);
 
-  // Function to decrypt application data
+  // Function to decrypt application data using real FHE
   const decryptApplicationData = async (applicationId: number) => {
     if (!instance || !isInitialized) {
       console.error('[MyApplications] FHE instance not ready');
@@ -50,7 +50,7 @@ const MyApplications = () => {
       return;
     }
 
-    console.log(`[MyApplications] Starting decryption for application ${applicationId}...`);
+    console.log(`[MyApplications] Starting REAL FHE decryption for application ${applicationId}...`);
     
     // Set loading state
     setDecryptingStates(prev => ({ ...prev, [applicationId]: true }));
@@ -59,36 +59,149 @@ const MyApplications = () => {
     try {
       console.log('[MyApplications] Fetching encrypted data from contract...');
       
-      // Get encrypted data from contract
       const contractAddress = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
       
-      // For now, we'll use a mock approach since we need to handle the FHE decryption properly
-      // In a real implementation, you would:
-      // 1. Call getApplicationEncryptedData(applicationId) from the contract
-      // 2. Use the FHE instance to decrypt the euint32 values
-      // 3. Display the decrypted values
+      // Get encrypted data from contract using direct RPC call
+      const response = await fetch(`https://sepolia.g.alchemy.com/v2/${import.meta.env.VITE_ALCHEMY_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'eth_call',
+          params: [{
+            to: contractAddress,
+            data: `0x${Buffer.from(`getApplicationEncryptedData(${applicationId})`).toString('hex')}`
+          }, 'latest'],
+          id: 1
+        })
+      });
+
+      const responseData = await response.json();
       
-      console.log('[MyApplications] Simulating FHE decryption with contract data...');
+      if (responseData.error || !responseData.result) {
+        throw new Error('Failed to fetch encrypted data from contract');
+      }
+
+      const encryptedData = responseData.result;
+
+      console.log('🔍 Encrypted data from contract:', encryptedData);
       
-      // Simulate decryption delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Create keypair for decryption
+      const keypair = instance.generateKeypair();
+      console.log('🔑 Generated keypair for decryption');
       
-      // For demo purposes, we'll use the applicationHash to generate consistent mock data
+      // Prepare handle-contract pairs for the three encrypted values
+      const handleContractPairs = [
+        { 
+          handle: encryptedData.proposedRent, 
+          contractAddress: contractAddress 
+        },
+        { 
+          handle: encryptedData.creditScore, 
+          contractAddress: contractAddress 
+        },
+        { 
+          handle: encryptedData.income, 
+          contractAddress: contractAddress 
+        }
+      ];
+      
+      console.log('🔍 Handle-contract pairs:', handleContractPairs);
+
+      // Create EIP712 signature
+      const startTimeStamp = Math.floor(Date.now() / 1000).toString();
+      const durationDays = '10';
+      const contractAddresses = [contractAddress];
+
+      const eip712 = instance.createEIP712(
+        keypair.publicKey,
+        contractAddresses,
+        startTimeStamp,
+        durationDays
+      );
+
+      // Get signer from wallet
+      const provider = (window as any).ethereum;
+      if (!provider) {
+        throw new Error('Ethereum provider not found');
+      }
+
+      const signer = await provider.request({ method: 'eth_requestAccounts' });
+      const signature = await provider.request({
+        method: 'eth_signTypedData_v4',
+        params: [signer[0], JSON.stringify({
+          domain: eip712.domain,
+          types: { UserDecryptRequestVerification: eip712.types.UserDecryptRequestVerification },
+          message: eip712.message
+        })]
+      });
+
+      console.log('🔐 Created EIP712 signature for decryption');
+
+      // Decrypt the data
+      const decryptionResult = await instance.userDecrypt(
+        handleContractPairs,
+        keypair.privateKey,
+        keypair.publicKey,
+        signature.replace('0x', ''),
+        contractAddresses,
+        address,
+        startTimeStamp,
+        durationDays
+      );
+
+      console.log('🔍 FHE Decryption result:', decryptionResult);
+
+      // Extract decrypted values
+      const decryptedProposedRent = decryptionResult[encryptedData.proposedRent]?.toString() || '0';
+      const decryptedCreditScore = decryptionResult[encryptedData.creditScore]?.toString() || '0';
+      const decryptedIncome = decryptionResult[encryptedData.income]?.toString() || '0';
+
+      console.log('🔍 Decrypted values:', {
+        proposedRent: decryptedProposedRent,
+        creditScore: decryptedCreditScore,
+        income: decryptedIncome
+      });
+
+      // Get application info for additional data
+      const application = applications.find(app => app.id === applicationId);
+      
+      const realDecryptedData = {
+        proposedRent: parseInt(decryptedProposedRent),
+        creditScore: parseInt(decryptedCreditScore),
+        income: parseInt(decryptedIncome),
+        encryptedData: {
+          proposedRent: encryptedData.proposedRent,
+          creditScore: encryptedData.creditScore,
+          income: encryptedData.income
+        },
+        contractData: {
+          applicationHash: application?.applicationHash || '',
+          moveInDate: application?.moveInDate || '',
+          specialRequests: application?.specialRequests || ''
+        }
+      };
+      
+      console.log(`[MyApplications] REAL FHE Decryption completed for application ${applicationId}:`, realDecryptedData);
+      
+      setDecryptedData(prev => ({ ...prev, [applicationId]: realDecryptedData }));
+      
+    } catch (error) {
+      console.error(`[MyApplications] FHE Decryption failed for application ${applicationId}:`, error);
+      
+      // Fallback to mock data if FHE decryption fails
+      console.log('[MyApplications] Falling back to mock data due to FHE error...');
+      
       const application = applications.find(app => app.id === applicationId);
       const hashValue = application?.applicationHash || 'MTIzfDIwMjUtMTEtMjA=';
-      
-      // Decode base64 hash to get some deterministic data
       const decodedHash = atob(hashValue);
-      console.log('[MyApplications] Decoded application hash:', decodedHash);
-      
-      // Generate deterministic mock data based on the hash
       const hashNum = decodedHash.split('|')[0] || '123';
       const baseValue = parseInt(hashNum) || 123;
       
-      const mockDecryptedData = {
-        proposedRent: baseValue * 30, // Convert to realistic rent amount
-        creditScore: Math.min(850, Math.max(300, baseValue * 6)), // Credit score between 300-850
-        income: baseValue * 700, // Annual income
+      const fallbackData = {
+        proposedRent: baseValue * 30,
+        creditScore: Math.min(850, Math.max(300, baseValue * 6)),
+        income: baseValue * 700,
         encryptedData: {
           proposedRent: `0x${baseValue.toString(16).padStart(8, '0')}...`,
           creditScore: `0x${(baseValue * 6).toString(16).padStart(8, '0')}...`,
@@ -98,18 +211,15 @@ const MyApplications = () => {
           applicationHash: hashValue,
           moveInDate: application?.moveInDate || '2025-11-20',
           specialRequests: application?.specialRequests || ''
-        }
+        },
+        isFallback: true
       };
       
-      console.log(`[MyApplications] Decryption completed for application ${applicationId}:`, mockDecryptedData);
+      setDecryptedData(prev => ({ ...prev, [applicationId]: fallbackData }));
       
-      setDecryptedData(prev => ({ ...prev, [applicationId]: mockDecryptedData }));
-      
-    } catch (error) {
-      console.error(`[MyApplications] Decryption failed for application ${applicationId}:`, error);
       setDecryptErrors(prev => ({ 
         ...prev, 
-        [applicationId]: error instanceof Error ? error.message : 'Decryption failed' 
+        [applicationId]: `FHE decryption failed, showing fallback data: ${error instanceof Error ? error.message : 'Unknown error'}` 
       }));
     } finally {
       setDecryptingStates(prev => ({ ...prev, [applicationId]: false }));
@@ -294,9 +404,9 @@ const MyApplications = () => {
                   ) : (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-green-600 flex items-center gap-2">
+                        <span className={`text-sm font-medium flex items-center gap-2 ${decryptedData[application.id].isFallback ? 'text-yellow-600' : 'text-green-600'}`}>
                           <Eye className="w-4 h-4" />
-                          Sensitive Data Decrypted
+                          {decryptedData[application.id].isFallback ? 'Fallback Data (FHE Failed)' : 'Sensitive Data Decrypted'}
                         </span>
                         <Button 
                           variant="ghost" 
@@ -313,19 +423,19 @@ const MyApplications = () => {
                         </Button>
                       </div>
                       
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-3 space-y-3">
+                      <div className={`rounded-lg p-3 space-y-3 ${decryptedData[application.id].isFallback ? 'bg-yellow-50 border border-yellow-200' : 'bg-green-50 border border-green-200'}`}>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
                           <div>
-                            <span className="font-medium text-green-800">Proposed Rent:</span>
-                            <div className="text-green-700">${decryptedData[application.id].proposedRent.toLocaleString()}/month</div>
+                            <span className={`font-medium ${decryptedData[application.id].isFallback ? 'text-yellow-800' : 'text-green-800'}`}>Proposed Rent:</span>
+                            <div className={decryptedData[application.id].isFallback ? 'text-yellow-700' : 'text-green-700'}>${decryptedData[application.id].proposedRent.toLocaleString()}/month</div>
                           </div>
                           <div>
-                            <span className="font-medium text-green-800">Credit Score:</span>
-                            <div className="text-green-700">{decryptedData[application.id].creditScore}</div>
+                            <span className={`font-medium ${decryptedData[application.id].isFallback ? 'text-yellow-800' : 'text-green-800'}`}>Credit Score:</span>
+                            <div className={decryptedData[application.id].isFallback ? 'text-yellow-700' : 'text-green-700'}>{decryptedData[application.id].creditScore}</div>
                           </div>
                           <div>
-                            <span className="font-medium text-green-800">Annual Income:</span>
-                            <div className="text-green-700">${decryptedData[application.id].income.toLocaleString()}</div>
+                            <span className={`font-medium ${decryptedData[application.id].isFallback ? 'text-yellow-800' : 'text-green-800'}`}>Annual Income:</span>
+                            <div className={decryptedData[application.id].isFallback ? 'text-yellow-700' : 'text-green-700'}>${decryptedData[application.id].income.toLocaleString()}</div>
                           </div>
                         </div>
                         
@@ -390,3 +500,4 @@ const MyApplications = () => {
 };
 
 export default MyApplications;
+
