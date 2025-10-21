@@ -12,7 +12,6 @@ import HowItWorksPage from "./pages/HowItWorksPage";
 import LandlordsPage from "./pages/LandlordsPage";
 import MyApplicationsPage from "./pages/MyApplicationsPage";
 import LandlordDashboardPage from "./pages/LandlordDashboardPage";
-import ApplicationDecryptionPage from "./pages/ApplicationDecryptionPage";
 import NotFound from "./pages/NotFound";
 import '@rainbow-me/rainbowkit/styles.css';
 import './utils/errorHandler'; // Initialize global error handlers
@@ -34,7 +33,6 @@ const App = () => (
                     <Route path="/landlords" element={<LandlordsPage />} />
                     <Route path="/my-applications" element={<MyApplicationsPage />} />
                     <Route path="/landlord-dashboard" element={<LandlordDashboardPage />} />
-                    <Route path="/decrypt-application" element={<ApplicationDecryptionPage />} />
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                     <Route path="*" element={<NotFound />} />
                   </Routes>

@@ -30,9 +30,6 @@ const Header = () => {
             <Link to="/landlord-dashboard" className="text-foreground hover:text-primary transition-smooth font-medium">
               Landlord Dashboard
             </Link>
-            <Link to="/decrypt-application" className="text-foreground hover:text-primary transition-smooth font-medium">
-              Decrypt Data
-            </Link>
             <Link to="/how-it-works" className="text-foreground hover:text-primary transition-smooth font-medium">
               How It Works
             </Link>
@@ -67,9 +64,6 @@ const Header = () => {
               </Link>
               <Link to="/landlord-dashboard" className="text-foreground hover:text-primary transition-smooth font-medium" onClick={() => setIsMenuOpen(false)}>
                 Landlord Dashboard
-              </Link>
-              <Link to="/decrypt-application" className="text-foreground hover:text-primary transition-smooth font-medium" onClick={() => setIsMenuOpen(false)}>
-                Decrypt Data
               </Link>
               <Link to="/how-it-works" className="text-foreground hover:text-primary transition-smooth font-medium" onClick={() => setIsMenuOpen(false)}>
                 How It Works
