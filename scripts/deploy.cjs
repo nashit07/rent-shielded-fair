@@ -6,31 +6,43 @@ async function main() {
   // Get the contract factory
   const RentShieldedFair = await ethers.getContractFactory("RentShieldedFair");
 
-  // Deploy the contract with a verifier address (you can use any address for testing)
-  const verifierAddress = "0x3c7fae276c590a8df81ed320851c53db4bc39916"; // Replace with actual verifier address
+  // Set the verifier address (use exact case from wallet)
+  const verifierAddress = "0x3C7FAe276c590a8DF81eD320851C53DB4bC39916";
   
-  const rentShieldedFair = await RentShieldedFair.deploy(verifierAddress);
+  const [deployer] = await ethers.getSigners();
+  console.log("Deploying contracts with the account:", deployer.address);
+  console.log("Account balance:", (await deployer.provider.getBalance(deployer.address)).toString());
+  console.log("Verifier address:", verifierAddress);
+  
+  if (!deployer.address) {
+    throw new Error("No deployer account found. Please check your private key configuration.");
+  }
 
+  const rentShieldedFair = await RentShieldedFair.deploy(verifierAddress);
   await rentShieldedFair.waitForDeployment();
 
   const contractAddress = await rentShieldedFair.getAddress();
-  
   console.log("RentShieldedFair deployed to:", contractAddress);
-  console.log("Verifier address:", verifierAddress);
 
   // Save deployment info
   const deploymentInfo = {
-    contractAddress: contractAddress,
-    verifierAddress: verifierAddress,
+    contractAddress,
+    deployer: deployer.address,
+    verifier: verifierAddress,
     network: "sepolia",
     timestamp: new Date().toISOString(),
-    deployer: await rentShieldedFair.runner.getAddress()
+    blockNumber: await deployer.provider.getBlockNumber()
   };
 
   const fs = require('fs');
   fs.writeFileSync('deployment-info.json', JSON.stringify(deploymentInfo, null, 2));
-  
-  console.log("Deployment info saved to deployment-info.json");
+
+  console.log("Deployment completed successfully!");
+  console.log("Contract Address:", contractAddress);
+  console.log("Deployer:", deployer.address);
+  console.log("Verifier:", verifierAddress);
+  console.log("Network: sepolia");
+  console.log("Timestamp:", deploymentInfo.timestamp);
 }
 
 main()

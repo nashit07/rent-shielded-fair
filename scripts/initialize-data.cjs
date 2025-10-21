@@ -9,6 +9,13 @@ async function main() {
   
   console.log("Contract address:", deploymentInfo.contractAddress);
   
+  const [deployer] = await ethers.getSigners();
+  console.log("Using account:", deployer.address);
+  
+  if (!deployer.address) {
+    throw new Error("No deployer account found. Please check your private key configuration.");
+  }
+  
   // Get the contract instance
   const RentShieldedFair = await ethers.getContractFactory("RentShieldedFair");
   const contract = RentShieldedFair.attach(deploymentInfo.contractAddress);
