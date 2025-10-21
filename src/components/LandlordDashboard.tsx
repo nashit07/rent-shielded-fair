@@ -192,42 +192,81 @@ const LandlordDashboard = () => {
 
   console.log('[LandlordDashboard] Applications data:', applicationsData);
 
+  // Get detailed application info for all applications
+  const allApplicationIds = applicationsData?.flatMap((result, index) => {
+    if (result.status === 'success' && result.result) {
+      const applicationIds = result.result as number[];
+      return applicationIds;
+    }
+    return [];
+  }) || [];
+
+  const detailedApplicationCalls = allApplicationIds.map(appId => ({
+    address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
+    abi: CONTRACT_ABI,
+    functionName: 'getDetailedApplicationInfo',
+    args: [appId],
+  }));
+
+  const { data: detailedApplicationsData, isLoading: detailedApplicationsLoading } = useReadContracts({
+    contracts: detailedApplicationCalls,
+    query: {
+      enabled: allApplicationIds.length > 0,
+    },
+  });
+
+  console.log('[LandlordDashboard] Detailed applications data:', detailedApplicationsData);
+
   // Process applications data
   useEffect(() => {
-    if (applicationsData && properties.length > 0) {
-      console.log('📊 Processing applications data...');
+    if (detailedApplicationsData && allApplicationIds.length > 0) {
+      console.log('📊 Processing detailed applications data...');
       
       const allApplications: ApplicationInfo[] = [];
-      let applicationIndex = 0;
       
-      properties.forEach((property, propertyIndex) => {
-        const result = applicationsData[propertyIndex];
-        if (result?.status === 'success' && result.result) {
-          const applicationIds = result.result as number[];
-          console.log(`Property ${property.id} has ${applicationIds.length} applications`);
+      detailedApplicationsData.forEach((result, index) => {
+        if (result.status === 'success' && result.result) {
+          const data = result.result as any[];
+          const appId = allApplicationIds[index];
           
-          // For now, just log the application IDs
-          // In a full implementation, you'd fetch detailed application info
-          applicationIds.forEach(appId => {
-            allApplications.push({
-              id: appId,
-              applicant: '0x...', // Would be fetched from contract
-              moveInDate: '2024-12-01',
-              specialRequests: 'Pet-friendly unit preferred',
-              status: 0, // pending
-              priorityScore: 85,
-              submittedAt: Date.now() / 1000,
-              reviewedAt: 0,
-              propertyOwner: property.owner
-            });
+          console.log(`📊 Processing application ${appId} data:`, data);
+          
+          // Map contract data to our interface
+          // Contract returns: [isApproved, isRejected, applicationHash, moveInDate, specialRequests, applicant, propertyOwner, submittedAt, reviewedAt, priorityScore]
+          const isApproved = data[0];
+          const isRejected = data[1];
+          const applicationHash = data[2];
+          const moveInDate = data[3];
+          const specialRequests = data[4];
+          const applicant = data[5];
+          const propertyOwner = data[6];
+          const submittedAt = Number(data[7]);
+          const reviewedAt = Number(data[8]);
+          const priorityScore = Number(data[9]);
+          
+          // Determine status: 0 = pending, 1 = approved, 2 = rejected
+          let status = 0; // pending
+          if (isApproved) status = 1;
+          else if (isRejected) status = 2;
+          
+          allApplications.push({
+            id: appId,
+            applicant: applicant,
+            moveInDate: moveInDate,
+            specialRequests: specialRequests,
+            status: status,
+            priorityScore: priorityScore,
+            submittedAt: submittedAt,
+            reviewedAt: reviewedAt,
+            propertyOwner: propertyOwner
           });
         }
       });
       
-      console.log(`✅ Found ${allApplications.length} total applications`);
+      console.log(`✅ Found ${allApplications.length} total applications with detailed data`);
       setApplications(allApplications);
     }
-  }, [applicationsData, properties]);
+  }, [detailedApplicationsData, allApplicationIds]);
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleDateString('en-US', {
