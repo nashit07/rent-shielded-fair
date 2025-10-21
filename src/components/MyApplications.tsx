@@ -125,49 +125,46 @@ const MyApplications = () => {
 
   const fetchApplicationData = async (applicationId: number): Promise<ApplicationInfo | null> => {
     try {
-      // Fetch application details
-      const response = await fetch('/api/contract', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          address: import.meta.env.VITE_CONTRACT_ADDRESS,
-          abi: CONTRACT_ABI,
-          functionName: 'getDetailedApplicationInfo',
-          args: [applicationId]
-        })
-      });
+      console.log(`🔍 Fetching application ${applicationId} data...`);
+      
+      // For now, return mock data since we don't have a backend API
+      // In production, this would use direct contract calls
+      const mockApplications = [
+        {
+          applicationId: 0,
+          isApproved: false,
+          isRejected: false,
+          applicationHash: "hash_12345",
+          moveInDate: "2024-12-01",
+          specialRequests: "Pet-friendly unit preferred",
+          applicant: "0x1234567890123456789012345678901234567890",
+          propertyOwner: "0x3f0EB6E953eDA41d70a497712C0D64D33035aDac",
+          submittedAt: Date.now() - 86400000,
+          reviewedAt: 0,
+          priorityScore: 85
+        },
+        {
+          applicationId: 1,
+          isApproved: true,
+          isRejected: false,
+          applicationHash: "hash_67890",
+          moveInDate: "2024-11-15",
+          specialRequests: "Ground floor unit",
+          applicant: "0x1234567890123456789012345678901234567890",
+          propertyOwner: "0x3f0EB6E953eDA41d70a497712C0D64D33035aDac",
+          submittedAt: Date.now() - 172800000,
+          reviewedAt: Date.now() - 86400000,
+          priorityScore: 92
+        }
+      ];
 
-      if (response.ok) {
-        const data = await response.json();
-        const [
-          isApproved,
-          isRejected,
-          applicationHash,
-          moveInDate,
-          specialRequests,
-          applicant,
-          propertyOwner,
-          submittedAt,
-          reviewedAt,
-          priorityScore
-        ] = data.result;
-
-        return {
-          applicationId,
-          isApproved,
-          isRejected,
-          applicationHash,
-          moveInDate,
-          specialRequests,
-          applicant,
-          propertyOwner,
-          submittedAt: Number(submittedAt),
-          reviewedAt: Number(reviewedAt),
-          priorityScore: Number(priorityScore)
-        };
+      const application = mockApplications[applicationId];
+      if (application) {
+        console.log(`✅ Application ${applicationId} data loaded`);
+        return application;
       }
     } catch (err) {
-      console.error(`Error fetching application ${applicationId}:`, err);
+      console.error(`❌ Error fetching application ${applicationId}:`, err);
     }
     
     return null;
