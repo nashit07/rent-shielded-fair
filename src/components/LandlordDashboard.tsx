@@ -317,34 +317,31 @@ const LandlordDashboard = () => {
       // Step 1: Generate keypair
       const keypair = instance.generateKeypair();
 
-      // Step 2: Create EIP712 structure
-      const eip712 = instance.createEIP712({
-        domain: {
-          name: 'FHE',
-          version: '1.0.0',
-          chainId: walletClient.chain.id,
-          verifyingContract: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
-        },
-        types: {
-          UserDecryptRequestVerification: [
-            { name: 'userAddress', type: 'address' },
-            { name: 'request', type: 'string' }
-          ]
-        },
-        primaryType: 'UserDecryptRequestVerification',
-        message: {
-          userAddress: address,
-          request: JSON.stringify({
-            userAddress: address,
-            contractAddress: import.meta.env.VITE_CONTRACT_ADDRESS
-          })
-        }
-      });
+      // Step 2: Create EIP712 structure (same as MyApplications)
+      const startTimeStamp = Math.floor(Date.now() / 1000).toString();
+      const durationDays = '10';
+      const contractAddress = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
+      const contractAddresses = [contractAddress];
 
-      // Step 3: Request wallet signature
-      const signature = await walletClient.request({
+      const eip712 = instance.createEIP712(
+        keypair.publicKey,
+        contractAddresses,
+        startTimeStamp,
+        durationDays
+      );
+
+      // Step 3: Request wallet signature (same as MyApplications)
+      const provider = (window as any).ethereum;
+      if (!provider) {
+        throw new Error('Ethereum provider not found');
+      }
+
+      const accounts = await provider.request({ method: 'eth_requestAccounts' });
+      const userAddress = accounts[0];
+      
+      const signature = await provider.request({
         method: 'eth_signTypedData_v4',
-        params: [address, JSON.stringify({
+        params: [userAddress, JSON.stringify({
           domain: eip712.domain,
           types: eip712.types,
           primaryType: 'UserDecryptRequestVerification',
@@ -390,10 +387,6 @@ const LandlordDashboard = () => {
           contractAddress: import.meta.env.VITE_CONTRACT_ADDRESS as string
         }
       ];
-
-      const contractAddresses = [import.meta.env.VITE_CONTRACT_ADDRESS as string];
-      const startTimeStamp = Math.floor(Date.now() / 1000);
-      const durationDays = '10';
 
       const decryptionResult = await instance.userDecrypt(
         handleContractPairs,
