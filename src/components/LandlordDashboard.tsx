@@ -85,6 +85,16 @@ const CONTRACT_ABI = [
     ],
     "stateMutability": "view",
     "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "uint256", "name": "applicationId", "type": "uint256"},
+      {"internalType": "bool", "name": "isApproved", "type": "bool"}
+    ],
+    "name": "reviewApplication",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   }
 ] as const;
 
@@ -433,12 +443,16 @@ const LandlordDashboard = () => {
     setIsProcessing(prev => ({ ...prev, [applicationId]: true }));
     
     try {
-      await writeContract({
+      console.log('Approving application:', applicationId);
+      
+      const result = await writeContract({
         address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
         abi: CONTRACT_ABI as any,
         functionName: 'reviewApplication',
         args: [applicationId, true], // true = approve
       } as any);
+      
+      console.log('Application approved successfully:', result);
       
       // Update local state
       setApplications(prev => 
@@ -465,12 +479,16 @@ const LandlordDashboard = () => {
     setIsProcessing(prev => ({ ...prev, [applicationId]: true }));
     
     try {
-      await writeContract({
+      console.log('Rejecting application:', applicationId);
+      
+      const result = await writeContract({
         address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
         abi: CONTRACT_ABI as any,
         functionName: 'reviewApplication',
         args: [applicationId, false], // false = reject
       } as any);
+      
+      console.log('Application rejected successfully:', result);
       
       // Update local state
       setApplications(prev => 
