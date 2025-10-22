@@ -3,10 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Filter, Search, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { usePropertiesReal } from "@/hooks/usePropertiesReal";
-// Use public assets for Vercel deployment compatibility
-const apartment1 = "/apartment-1.jpg";
-const apartment2 = "/apartment-2.jpg";
-const apartment3 = "/apartment-3.jpg";
+// Use reliable image sources for Vercel deployment
+const apartment1 = "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=400&h=300&fit=crop&crop=center";
+const apartment2 = "https://images.unsplash.com/photo-1560448204-603a3b30944b?w=400&h=300&fit=crop&crop=center";
+const apartment3 = "https://images.unsplash.com/photo-1560448204-61dc36dc98c8?w=400&h=300&fit=crop&crop=center";
 
 const PropertyListings = () => {
   const { properties, loading: isLoading, error } = usePropertiesReal();
