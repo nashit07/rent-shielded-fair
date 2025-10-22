@@ -52,6 +52,13 @@ const CONTRACT_ABI = [
     "type": "function"
   },
   {
+    "inputs": [{"internalType": "address", "name": "landlord", "type": "address"}],
+    "name": "getLandlordApplications",
+    "outputs": [{"internalType": "uint256[]", "name": "", "type": "uint256[]"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "getAllApplications",
     "outputs": [{"internalType": "uint256[]", "name": "", "type": "uint256[]"}],
@@ -209,51 +216,27 @@ const LandlordDashboard = () => {
     }
   }, [propertiesData, address]);
 
-  // Get landlord's properties first
-  const { data: landlordPropertiesData, isLoading: landlordPropertiesLoading } = useReadContract({
+  // Get landlord's applications directly (more efficient)
+  const { data: landlordApplicationsData, isLoading: landlordApplicationsLoading } = useReadContract({
     address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
     abi: CONTRACT_ABI,
-    functionName: 'getLandlordProperties',
+    functionName: 'getLandlordApplications',
     args: address ? [address] : undefined,
     query: {
       enabled: !!address,
     },
   });
 
-  console.log('[LandlordDashboard] Landlord properties data:', landlordPropertiesData);
+  console.log('[LandlordDashboard] Landlord applications data:', landlordApplicationsData);
 
-  // Get applications for each property
-  const landlordPropertyIds = landlordPropertiesData || [];
-  
-  const propertyApplicationCalls = landlordPropertyIds.map(propertyId => ({
-    address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
-    abi: CONTRACT_ABI,
-    functionName: 'getPropertyApplications',
-    args: [propertyId],
-  }));
-
-  const { data: propertyApplicationsData, isLoading: propertyApplicationsLoading } = useReadContracts({
-    contracts: propertyApplicationCalls,
-    query: {
-      enabled: landlordPropertyIds.length > 0,
-    },
-  });
-
-  console.log('[LandlordDashboard] Property applications data:', propertyApplicationsData);
-
-  // Flatten all application IDs from all properties
+  // Convert application IDs to numbers
   const allApplicationIds: number[] = [];
-  if (propertyApplicationsData) {
-    propertyApplicationsData.forEach((result) => {
-      if (result.status === 'success' && result.result) {
-        const appIds = result.result as readonly bigint[];
-        const numberIds = appIds.map(id => Number(id));
-        allApplicationIds.push(...numberIds);
-      }
-    });
+  if (landlordApplicationsData) {
+    const appIds = landlordApplicationsData as readonly bigint[];
+    allApplicationIds.push(...appIds.map(id => Number(id)));
   }
 
-  console.log('[LandlordDashboard] All application IDs from properties:', allApplicationIds);
+  console.log('[LandlordDashboard] All application IDs for landlord:', allApplicationIds);
 
   // Get detailed application info for all applications
   const detailedApplicationCalls = allApplicationIds.map(appId => ({
