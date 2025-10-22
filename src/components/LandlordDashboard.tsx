@@ -10,6 +10,9 @@ import { Calendar, MapPin, DollarSign, Users, Clock, CheckCircle, XCircle, Plus,
 import { formatEther } from 'viem';
 import { useZamaInstance } from '../hooks/useZamaInstance';
 import { RentShieldedFairABI } from '../lib/contract';
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 // Contract ABI for reading property and application data
 const CONTRACT_ABI = [
@@ -95,6 +98,26 @@ const CONTRACT_ABI = [
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "string", "name": "_name", "type": "string"},
+      {"internalType": "string", "name": "_description", "type": "string"},
+      {"internalType": "string", "name": "_location", "type": "string"},
+      {"internalType": "uint256", "name": "_monthlyRent", "type": "uint256"},
+      {"internalType": "uint256", "name": "_securityDeposit", "type": "uint256"},
+      {"internalType": "uint256", "name": "_propertySize", "type": "uint256"},
+      {"internalType": "uint8", "name": "_bedrooms", "type": "uint8"},
+      {"internalType": "uint8", "name": "_bathrooms", "type": "uint8"},
+      {"internalType": "string", "name": "_propertyType", "type": "string"},
+      {"internalType": "string", "name": "_amenities", "type": "string"},
+      {"internalType": "uint256", "name": "_leaseDuration", "type": "uint256"},
+      {"internalType": "uint256", "name": "_applicationDeadline", "type": "uint256"}
+    ],
+    "name": "listProperty",
+    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+    "stateMutability": "nonpayable",
+    "type": "function"
   }
 ] as const;
 
@@ -140,6 +163,8 @@ const LandlordDashboard = () => {
   const [decryptedData, setDecryptedData] = useState<Record<number, any>>({});
   const [isDecrypting, setIsDecrypting] = useState<Record<number, boolean>>({});
   const [decryptError, setDecryptError] = useState<Record<number, string>>({});
+  const [showAddProperty, setShowAddProperty] = useState(false);
+  const [isAddingProperty, setIsAddingProperty] = useState(false);
 
   // Get total property count
   const { data: propertyCount, isLoading: countLoading } = useReadContract({
@@ -506,6 +531,51 @@ const LandlordDashboard = () => {
     }
   };
 
+  // Handle adding new property
+  const handleAddProperty = async (propertyData: any) => {
+    if (!address) {
+      console.error('No wallet connected');
+      return;
+    }
+
+    setIsAddingProperty(true);
+    
+    try {
+      console.log('Adding new property:', propertyData);
+      
+      const result = await writeContract({
+        address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
+        abi: CONTRACT_ABI as any,
+        functionName: 'listProperty',
+        args: [
+          propertyData.name,
+          propertyData.description,
+          propertyData.location,
+          BigInt(propertyData.monthlyRent),
+          BigInt(propertyData.securityDeposit),
+          BigInt(propertyData.propertySize),
+          Number(propertyData.bedrooms),
+          Number(propertyData.bathrooms),
+          propertyData.propertyType || 'Apartment',
+          propertyData.amenities || '',
+          BigInt(propertyData.leaseDuration || 12),
+          BigInt(propertyData.applicationDeadline || Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60)
+        ],
+      } as any);
+      
+      console.log('Property added successfully:', result);
+      setShowAddProperty(false);
+      
+      // Refresh properties list
+      window.location.reload();
+      
+    } catch (error) {
+      console.error('Error adding property:', error);
+    } finally {
+      setIsAddingProperty(false);
+    }
+  };
+
   const getStatusText = (status: number) => {
     switch (status) {
       case 0: return 'Pending';
@@ -568,65 +638,82 @@ const LandlordDashboard = () => {
         </TabsList>
 
         <TabsContent value="properties" className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold">My Properties</h3>
+            <Button onClick={() => setShowAddProperty(true)} className="bg-blue-600 hover:bg-blue-700">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Property
+            </Button>
+          </div>
+          
           {properties.length === 0 ? (
             <div className="text-center py-12">
               <MapPin className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">No Properties Found</h3>
-              <p className="text-muted-foreground">You haven't listed any properties yet.</p>
+              <p className="text-muted-foreground mb-4">You haven't listed any properties yet.</p>
+              <Button onClick={() => setShowAddProperty(true)} className="bg-blue-600 hover:bg-blue-700">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Your First Property
+              </Button>
             </div>
           ) : (
-            <div className="grid gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {properties.map((property) => (
-                <Card key={property.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
+                <Card key={property.id} className="hover:shadow-lg transition-all duration-300 overflow-hidden">
+                  <div className="relative">
+                    <div className="h-48 bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
+                      <MapPin className="w-16 h-16 text-blue-400" />
+                    </div>
+                    <div className="absolute top-4 right-4">
+                      <Badge variant={property.isAvailable ? "default" : "secondary"}>
+                        {property.isAvailable ? "Available" : "Unavailable"}
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-xl">{property.name}</CardTitle>
+                    <CardDescription className="flex items-center gap-1">
+                      <MapPin className="w-4 h-4" />
+                      {property.location}
+                    </CardDescription>
+                  </CardHeader>
+                  
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between">
                       <div>
-                        <CardTitle className="flex items-center gap-2">
-                          {property.name}
-                          <Badge variant={property.isAvailable ? "default" : "secondary"}>
-                            {property.isAvailable ? "Available" : "Unavailable"}
-                          </Badge>
-                        </CardTitle>
-                        <CardDescription className="mt-1">
-                          {property.location}
-                        </CardDescription>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold">${property.monthlyRent}</div>
+                        <div className="text-2xl font-bold text-green-600">${property.monthlyRent}</div>
                         <div className="text-sm text-muted-foreground">per month</div>
                       </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm">
-                          <MapPin className="w-4 h-4 text-muted-foreground" />
-                          <span className="font-medium">Size:</span>
-                          <span>{property.propertySize} sq ft</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Users className="w-4 h-4 text-muted-foreground" />
-                          <span className="font-medium">Bedrooms:</span>
-                          <span>{property.bedrooms}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Users className="w-4 h-4 text-muted-foreground" />
-                          <span className="font-medium">Bathrooms:</span>
-                          <span>{property.bathrooms}</span>
-                        </div>
+                      <div className="text-right">
+                        <div className="text-sm font-medium">Security Deposit</div>
+                        <div className="text-lg">${property.securityDeposit}</div>
                       </div>
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm">
-                          <DollarSign className="w-4 h-4 text-muted-foreground" />
-                          <span className="font-medium">Security Deposit:</span>
-                          <span>${property.securityDeposit}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Calendar className="w-4 h-4 text-muted-foreground" />
-                          <span className="font-medium">Listed on:</span>
-                          <span>{formatDate(property.createdAt)}</span>
-                        </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-muted-foreground" />
+                        <span>{property.bedrooms} bed</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-muted-foreground" />
+                        <span>{property.bathrooms} bath</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-muted-foreground" />
+                        <span>{property.propertySize} sq ft</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-muted-foreground" />
+                        <span>{formatDate(property.createdAt)}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="pt-2 border-t">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Applications</span>
+                        <span className="font-medium">{property.applications?.length || 0}</span>
                       </div>
                     </div>
                   </CardContent>
@@ -907,7 +994,219 @@ const LandlordDashboard = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Add Property Modal */}
+      <Dialog open={showAddProperty} onOpenChange={setShowAddProperty}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="w-5 h-5" />
+              Add New Property
+            </DialogTitle>
+            <DialogDescription>
+              List a new rental property for tenants to apply
+            </DialogDescription>
+          </DialogHeader>
+          
+          <AddPropertyForm 
+            onSubmit={handleAddProperty}
+            isLoading={isAddingProperty}
+            onCancel={() => setShowAddProperty(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+};
+
+// Add Property Form Component
+const AddPropertyForm = ({ onSubmit, isLoading, onCancel }: {
+  onSubmit: (data: any) => void;
+  isLoading: boolean;
+  onCancel: () => void;
+}) => {
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    location: '',
+    monthlyRent: '',
+    securityDeposit: '',
+    propertySize: '',
+    bedrooms: '',
+    bathrooms: '',
+    propertyType: 'Apartment',
+    amenities: '',
+    leaseDuration: '12',
+    applicationDeadline: ''
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  const handleChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="name">Property Name *</Label>
+          <Input
+            id="name"
+            value={formData.name}
+            onChange={(e) => handleChange('name', e.target.value)}
+            placeholder="e.g., Modern Downtown Apartment"
+            required
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="location">Location *</Label>
+          <Input
+            id="location"
+            value={formData.location}
+            onChange={(e) => handleChange('location', e.target.value)}
+            placeholder="e.g., 123 Main St, City, State"
+            required
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="description">Description *</Label>
+        <Textarea
+          id="description"
+          value={formData.description}
+          onChange={(e) => handleChange('description', e.target.value)}
+          placeholder="Describe your property, amenities, and what makes it special..."
+          rows={3}
+          required
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="monthlyRent">Monthly Rent ($) *</Label>
+          <Input
+            id="monthlyRent"
+            type="number"
+            value={formData.monthlyRent}
+            onChange={(e) => handleChange('monthlyRent', e.target.value)}
+            placeholder="2000"
+            required
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="securityDeposit">Security Deposit ($) *</Label>
+          <Input
+            id="securityDeposit"
+            type="number"
+            value={formData.securityDeposit}
+            onChange={(e) => handleChange('securityDeposit', e.target.value)}
+            placeholder="2000"
+            required
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="propertySize">Size (sq ft) *</Label>
+          <Input
+            id="propertySize"
+            type="number"
+            value={formData.propertySize}
+            onChange={(e) => handleChange('propertySize', e.target.value)}
+            placeholder="1200"
+            required
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="bedrooms">Bedrooms *</Label>
+          <Input
+            id="bedrooms"
+            type="number"
+            min="1"
+            value={formData.bedrooms}
+            onChange={(e) => handleChange('bedrooms', e.target.value)}
+            placeholder="2"
+            required
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="bathrooms">Bathrooms *</Label>
+          <Input
+            id="bathrooms"
+            type="number"
+            min="1"
+            step="0.5"
+            value={formData.bathrooms}
+            onChange={(e) => handleChange('bathrooms', e.target.value)}
+            placeholder="1.5"
+            required
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="propertyType">Property Type</Label>
+          <Input
+            id="propertyType"
+            value={formData.propertyType}
+            onChange={(e) => handleChange('propertyType', e.target.value)}
+            placeholder="Apartment, House, Condo, etc."
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="leaseDuration">Lease Duration (months)</Label>
+          <Input
+            id="leaseDuration"
+            type="number"
+            value={formData.leaseDuration}
+            onChange={(e) => handleChange('leaseDuration', e.target.value)}
+            placeholder="12"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="amenities">Amenities</Label>
+        <Textarea
+          id="amenities"
+          value={formData.amenities}
+          onChange={(e) => handleChange('amenities', e.target.value)}
+          placeholder="e.g., Parking, Gym, Pool, Laundry, etc."
+          rows={2}
+        />
+      </div>
+
+      <div className="flex justify-end gap-3 pt-4">
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={isLoading} className="bg-blue-600 hover:bg-blue-700">
+          {isLoading ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Adding Property...
+            </>
+          ) : (
+            <>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Property
+            </>
+          )}
+        </Button>
+      </div>
+    </form>
   );
 };
 
