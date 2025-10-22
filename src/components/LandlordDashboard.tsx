@@ -13,6 +13,9 @@ import { RentShieldedFairABI } from '../lib/contract';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import apartment1 from "@/assets/apartment-1.jpg";
+import apartment2 from "@/assets/apartment-2.jpg";
+import apartment3 from "@/assets/apartment-3.jpg";
 
 // Contract ABI for reading property and application data
 const CONTRACT_ABI = [
@@ -658,18 +661,37 @@ const LandlordDashboard = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {properties.map((property) => (
-                <Card key={property.id} className="hover:shadow-lg transition-all duration-300 overflow-hidden">
-                  <div className="relative">
-                    <div className="h-48 bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
-                      <MapPin className="w-16 h-16 text-blue-400" />
+              {properties.map((property) => {
+                // Use the same image mapping as Browse Properties
+                const defaultImages = [apartment1, apartment2, apartment3];
+                const propertyImage = defaultImages[property.id % defaultImages.length];
+                
+                return (
+                  <Card key={property.id} className="hover:shadow-lg transition-all duration-300 overflow-hidden">
+                    <div className="relative">
+                      <div className="h-48 overflow-hidden">
+                        {/* Property Image - same as Browse Properties */}
+                        <img 
+                          src={propertyImage}
+                          alt={property.name}
+                          className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                          onError={(e) => {
+                            // Fallback to gradient background if image fails to load
+                            e.currentTarget.style.display = 'none';
+                            e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                          }}
+                        />
+                        {/* Fallback gradient background */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center hidden">
+                          <MapPin className="w-16 h-16 text-blue-400" />
+                        </div>
+                      </div>
+                      <div className="absolute top-4 right-4">
+                        <Badge variant={property.isAvailable ? "default" : "secondary"}>
+                          {property.isAvailable ? "Available" : "Unavailable"}
+                        </Badge>
+                      </div>
                     </div>
-                    <div className="absolute top-4 right-4">
-                      <Badge variant={property.isAvailable ? "default" : "secondary"}>
-                        {property.isAvailable ? "Available" : "Unavailable"}
-                      </Badge>
-                    </div>
-                  </div>
                   
                   <CardHeader className="pb-3">
                     <CardTitle className="text-xl">{property.name}</CardTitle>
@@ -718,7 +740,8 @@ const LandlordDashboard = () => {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+                );
+              })}
             </div>
           )}
         </TabsContent>
