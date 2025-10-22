@@ -24,5 +24,16 @@ export const RentShieldedFairABI = [
     ],
     "stateMutability": "view",
     "type": "function"
+  },
+  {
+    "inputs": [{"internalType": "uint256", "name": "applicationId", "type": "uint256"}],
+    "name": "getApplicationEncryptedData",
+    "outputs": [
+      {"internalType": "euint32", "name": "proposedRent", "type": "euint32"},
+      {"internalType": "euint32", "name": "creditScore", "type": "euint32"},
+      {"internalType": "euint32", "name": "income", "type": "euint32"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
   }
 ] as const;

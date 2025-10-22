@@ -17,6 +17,18 @@ const MyApplications = () => {
   const [decryptedData, setDecryptedData] = useState<Record<number, any>>({});
   const [decryptingStates, setDecryptingStates] = useState<Record<number, boolean>>({});
   const [decryptErrors, setDecryptErrors] = useState<Record<number, string>>({});
+  const [currentDecryptingId, setCurrentDecryptingId] = useState<number | null>(null);
+
+  // Get encrypted data from contract when decrypting
+  const { data: encryptedData, isLoading: encryptedDataLoading, error: encryptedDataError } = useReadContract({
+    address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
+    abi: RentShieldedFairABI,
+    functionName: 'getApplicationEncryptedData',
+    args: currentDecryptingId !== null ? [BigInt(currentDecryptingId)] : undefined,
+    query: {
+      enabled: currentDecryptingId !== null && isInitialized
+    }
+  });
 
   console.log('[MyApplications] Component rendered with:', {
     address,
@@ -52,9 +64,10 @@ const MyApplications = () => {
 
     console.log(`[MyApplications] Starting REAL FHE decryption for application ${applicationId}...`);
     
-    // Set loading state
+    // Set loading state and trigger encrypted data fetch
     setDecryptingStates(prev => ({ ...prev, [applicationId]: true }));
     setDecryptErrors(prev => ({ ...prev, [applicationId]: '' }));
+    setCurrentDecryptingId(applicationId);
 
     try {
       console.log('[MyApplications] Attempting REAL FHE decryption with wallet signature...');
@@ -103,41 +116,49 @@ const MyApplications = () => {
 
       console.log('✅ Wallet signature obtained for FHE decryption');
       
-      // Step 4: Get encrypted data from contract and perform real FHE decryption
-      console.log('[MyApplications] Getting encrypted data from contract...');
+      // Step 4: Wait for encrypted data from contract
+      console.log('[MyApplications] Waiting for encrypted data from contract...');
       
-      // Get encrypted data from contract using useReadContract
-      const contractAddr = import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`;
+      // Wait for encrypted data to be loaded
+      if (encryptedDataLoading) {
+        console.log('[MyApplications] Waiting for encrypted data...');
+        // Wait a bit for the data to load
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
       
-      // For now, we'll simulate getting encrypted data from contract
-      // In a real implementation, you would use useReadContract to get getApplicationEncryptedData
-      console.log('[MyApplications] Simulating encrypted data retrieval from contract...');
+      if (encryptedDataError) {
+        throw new Error(`Failed to get encrypted data: ${encryptedDataError.message}`);
+      }
       
-      // Simulate encrypted data from contract (in real implementation, this would come from contract)
-      const encryptedData = {
-        proposedRent: `0x${Math.random().toString(16).substring(2, 10)}...`,
-        creditScore: `0x${Math.random().toString(16).substring(2, 10)}...`,
-        income: `0x${Math.random().toString(16).substring(2, 10)}...`
-      };
+      if (!encryptedData) {
+        throw new Error('No encrypted data available');
+      }
       
       console.log('🔍 Encrypted data from contract:', encryptedData);
       
       // Step 5: Perform real FHE decryption
       console.log('[MyApplications] Performing real FHE decryption...');
       
+      // Type assertion for encrypted data
+      const encryptedDataTyped = encryptedData as unknown as {
+        proposedRent: string;
+        creditScore: string;
+        income: string;
+      };
+      
       // Prepare handle-contract pairs for the three encrypted values
       const handleContractPairs = [
         { 
-          handle: encryptedData.proposedRent, 
-          contractAddress: contractAddr 
+          handle: encryptedDataTyped.proposedRent, 
+          contractAddress: contractAddress 
         },
         { 
-          handle: encryptedData.creditScore, 
-          contractAddress: contractAddr 
+          handle: encryptedDataTyped.creditScore, 
+          contractAddress: contractAddress 
         },
         { 
-          handle: encryptedData.income, 
-          contractAddress: contractAddr 
+          handle: encryptedDataTyped.income, 
+          contractAddress: contractAddress 
         }
       ];
       
@@ -158,9 +179,9 @@ const MyApplications = () => {
       console.log('🔍 FHE Decryption result:', decryptionResult);
 
       // Extract decrypted values
-      const decryptedProposedRent = decryptionResult[encryptedData.proposedRent]?.toString() || '0';
-      const decryptedCreditScore = decryptionResult[encryptedData.creditScore]?.toString() || '0';
-      const decryptedIncome = decryptionResult[encryptedData.income]?.toString() || '0';
+      const decryptedProposedRent = decryptionResult[encryptedDataTyped.proposedRent]?.toString() || '0';
+      const decryptedCreditScore = decryptionResult[encryptedDataTyped.creditScore]?.toString() || '0';
+      const decryptedIncome = decryptionResult[encryptedDataTyped.income]?.toString() || '0';
 
       console.log('🔍 Decrypted values:', {
         proposedRent: decryptedProposedRent,
@@ -176,9 +197,9 @@ const MyApplications = () => {
         creditScore: parseInt(decryptedCreditScore),
         income: parseInt(decryptedIncome),
         encryptedData: {
-          proposedRent: encryptedData.proposedRent,
-          creditScore: encryptedData.creditScore,
-          income: encryptedData.income
+          proposedRent: encryptedDataTyped.proposedRent,
+          creditScore: encryptedDataTyped.creditScore,
+          income: encryptedDataTyped.income
         },
         contractData: {
           applicationHash: application?.applicationHash || '',
@@ -235,6 +256,7 @@ const MyApplications = () => {
       }));
     } finally {
       setDecryptingStates(prev => ({ ...prev, [applicationId]: false }));
+      setCurrentDecryptingId(null);
     }
   };
 
