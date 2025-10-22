@@ -45,6 +45,13 @@ const CONTRACT_ABI = [
     "type": "function"
   },
   {
+    "inputs": [{"internalType": "address", "name": "landlord", "type": "address"}],
+    "name": "getLandlordProperties",
+    "outputs": [{"internalType": "uint256[]", "name": "", "type": "uint256[]"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "getAllApplications",
     "outputs": [{"internalType": "uint256[]", "name": "", "type": "uint256[]"}],
@@ -132,6 +139,7 @@ const LandlordDashboard = () => {
 
   console.log('[LandlordDashboard] Property calls:', propertyCalls);
 
+  // @ts-ignore - Complex type inference issue with useReadContracts
   const { data: propertiesData, isLoading: propertiesLoading, error: propertiesError } = useReadContracts({
     contracts: propertyCalls,
     query: {
@@ -201,18 +209,53 @@ const LandlordDashboard = () => {
     }
   }, [propertiesData, address]);
 
-  // Get all applications and filter by property owner
-  const { data: allApplicationsData, isLoading: applicationsLoading } = useReadContract({
+  // Get landlord's properties first
+  const { data: landlordPropertiesData, isLoading: landlordPropertiesLoading } = useReadContract({
     address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
     abi: CONTRACT_ABI,
-    functionName: 'getAllApplications',
+    functionName: 'getLandlordProperties',
+    args: address ? [address] : undefined,
+    query: {
+      enabled: !!address,
+    },
   });
 
-  console.log('[LandlordDashboard] All applications data:', allApplicationsData);
+  console.log('[LandlordDashboard] Landlord properties data:', landlordPropertiesData);
+
+  // Get applications for each property
+  const landlordPropertyIds = landlordPropertiesData || [];
+  
+  const propertyApplicationCalls = landlordPropertyIds.map(propertyId => ({
+    address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
+    abi: CONTRACT_ABI,
+    functionName: 'getPropertyApplications',
+    args: [propertyId],
+  }));
+
+  const { data: propertyApplicationsData, isLoading: propertyApplicationsLoading } = useReadContracts({
+    contracts: propertyApplicationCalls,
+    query: {
+      enabled: landlordPropertyIds.length > 0,
+    },
+  });
+
+  console.log('[LandlordDashboard] Property applications data:', propertyApplicationsData);
+
+  // Flatten all application IDs from all properties
+  const allApplicationIds: number[] = [];
+  if (propertyApplicationsData) {
+    propertyApplicationsData.forEach((result) => {
+      if (result.status === 'success' && result.result) {
+        const appIds = result.result as readonly bigint[];
+        const numberIds = appIds.map(id => Number(id));
+        allApplicationIds.push(...numberIds);
+      }
+    });
+  }
+
+  console.log('[LandlordDashboard] All application IDs from properties:', allApplicationIds);
 
   // Get detailed application info for all applications
-  const allApplicationIds = allApplicationsData || [];
-
   const detailedApplicationCalls = allApplicationIds.map(appId => ({
     address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
     abi: CONTRACT_ABI,
@@ -256,29 +299,25 @@ const LandlordDashboard = () => {
           const reviewedAt = Number(data[8]);
           const priorityScore = Number(data[9]);
           
-          // Only include applications for properties owned by the current landlord
-          if (propertyOwner.toLowerCase() === address.toLowerCase()) {
-            console.log(`✅ Application ${appId} belongs to landlord`);
-            
-            // Determine status: 0 = pending, 1 = approved, 2 = rejected
-            let status = 0; // pending
-            if (isApproved) status = 1;
-            else if (isRejected) status = 2;
-            
-            landlordApplications.push({
-              id: appId,
-              applicant: applicant,
-              moveInDate: moveInDate,
-              specialRequests: specialRequests,
-              status: status,
-              priorityScore: priorityScore,
-              submittedAt: submittedAt,
-              reviewedAt: reviewedAt,
-              propertyOwner: propertyOwner
-            });
-          } else {
-            console.log(`❌ Application ${appId} not for landlord's properties`);
-          }
+          // Since we got applications through landlord's properties, all applications belong to the landlord
+          console.log(`✅ Application ${appId} belongs to landlord`);
+          
+          // Determine status: 0 = pending, 1 = approved, 2 = rejected
+          let status = 0; // pending
+          if (isApproved) status = 1;
+          else if (isRejected) status = 2;
+          
+          landlordApplications.push({
+            id: appId,
+            applicant: applicant,
+            moveInDate: moveInDate,
+            specialRequests: specialRequests,
+            status: status,
+            priorityScore: priorityScore,
+            submittedAt: submittedAt,
+            reviewedAt: reviewedAt,
+            propertyOwner: propertyOwner
+          });
         }
       });
       

@@ -520,6 +520,27 @@ contract RentShieldedFair is SepoliaConfig {
         return result;
     }
     
+    // Get all properties owned by a specific landlord
+    function getLandlordProperties(address landlord) public view returns (uint256[] memory) {
+        uint256[] memory landlordProperties = new uint256[](propertyCounter);
+        uint256 count = 0;
+        
+        for (uint256 i = 0; i < propertyCounter; i++) {
+            if (properties[i].owner == landlord) {
+                landlordProperties[count] = i;
+                count++;
+            }
+        }
+        
+        // Resize array to actual count
+        uint256[] memory result = new uint256[](count);
+        for (uint256 i = 0; i < count; i++) {
+            result[i] = landlordProperties[i];
+        }
+        
+        return result;
+    }
+    
     // Get all applications (for frontend filtering)
     function getAllApplications() public view returns (uint256[] memory) {
         uint256[] memory allApplications = new uint256[](applicationCounter);
