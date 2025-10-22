@@ -86,15 +86,17 @@ const MyApplications = () => {
 
       console.log('📝 Requesting wallet signature for FHE decryption...');
       
-      // Request wallet signature
+      // Request wallet signature using the same method as aidwell-connect
       const accounts = await provider.request({ method: 'eth_requestAccounts' });
       const userAddress = accounts[0];
       
+      // Use the same signature method as aidwell-connect
       const signature = await provider.request({
         method: 'eth_signTypedData_v4',
         params: [userAddress, JSON.stringify({
           domain: eip712.domain,
-          types: { UserDecryptRequestVerification: eip712.types.UserDecryptRequestVerification },
+          types: eip712.types,
+          primaryType: 'UserDecryptRequestVerification',
           message: eip712.message
         })]
       });
