@@ -1,7 +1,7 @@
 {
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!apartment-.*\\.jpg|favicon\\.ico|robots\\.txt|_redirects).*)",
       "destination": "/index.html"
     }
   ],
@@ -16,6 +16,15 @@
         {
           "key": "Cross-Origin-Embedder-Policy",
           "value": "require-corp"
+        }
+      ]
+    },
+    {
+      "source": "/apartment-.*\\.jpg",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
         }
       ]
     }
