@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useAccount } from 'wagmi';
+import { useAccount, useWriteContract } from 'wagmi';
 import { useReadContract, useReadContracts } from 'wagmi';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, MapPin, DollarSign, Users, Clock, CheckCircle, XCircle, Plus, User } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Calendar, MapPin, DollarSign, Users, Clock, CheckCircle, XCircle, Plus, User, Eye } from "lucide-react";
 import { formatEther } from 'viem';
 
 // Contract ABI for reading property and application data
@@ -116,9 +117,12 @@ interface ApplicationInfo {
 
 const LandlordDashboard = () => {
   const { address } = useAccount();
+  const { writeContract } = useWriteContract();
   const [properties, setProperties] = useState<PropertyInfo[]>([]);
   const [applications, setApplications] = useState<ApplicationInfo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedApplication, setSelectedApplication] = useState<ApplicationInfo | null>(null);
+  const [isProcessing, setIsProcessing] = useState<Record<number, boolean>>({});
 
   console.log('[LandlordDashboard] Component rendered with address:', address);
 
@@ -317,6 +321,84 @@ const LandlordDashboard = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  // Handle application actions
+  const handleViewDetails = (application: ApplicationInfo) => {
+    setSelectedApplication(application);
+    console.log('Viewing details for application:', application.id);
+  };
+
+  const handleApproveApplication = async (applicationId: number) => {
+    if (!address) {
+      console.error('No wallet connected');
+      return;
+    }
+
+    setIsProcessing(prev => ({ ...prev, [applicationId]: true }));
+    
+    try {
+      console.log('Approving application:', applicationId);
+      
+      await writeContract({
+        address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
+        abi: CONTRACT_ABI as any,
+        functionName: 'reviewApplication',
+        args: [applicationId, true], // true = approve
+      } as any);
+      
+      console.log('Application approved successfully');
+      
+      // Update local state
+      setApplications(prev => 
+        prev.map(app => 
+          app.id === applicationId 
+            ? { ...app, status: 1, reviewedAt: Math.floor(Date.now() / 1000) }
+            : app
+        )
+      );
+      
+    } catch (error) {
+      console.error('Error approving application:', error);
+    } finally {
+      setIsProcessing(prev => ({ ...prev, [applicationId]: false }));
+    }
+  };
+
+  const handleRejectApplication = async (applicationId: number) => {
+    if (!address) {
+      console.error('No wallet connected');
+      return;
+    }
+
+    setIsProcessing(prev => ({ ...prev, [applicationId]: true }));
+    
+    try {
+      console.log('Rejecting application:', applicationId);
+      
+      await writeContract({
+        address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
+        abi: CONTRACT_ABI as any,
+        functionName: 'reviewApplication',
+        args: [applicationId, false], // false = reject
+      } as any);
+      
+      console.log('Application rejected successfully');
+      
+      // Update local state
+      setApplications(prev => 
+        prev.map(app => 
+          app.id === applicationId 
+            ? { ...app, status: 2, reviewedAt: Math.floor(Date.now() / 1000) }
+            : app
+        )
+      );
+      
+    } catch (error) {
+      console.error('Error rejecting application:', error);
+    } finally {
+      setIsProcessing(prev => ({ ...prev, [applicationId]: false }));
+    }
   };
 
   const getStatusText = (status: number) => {
@@ -521,14 +603,28 @@ const LandlordDashboard = () => {
                       </div>
                     </div>
                     <div className="mt-4 pt-4 border-t flex gap-2">
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleViewDetails(application)}
+                      >
                         View Details
                       </Button>
-                      <Button size="sm" className="bg-green-600 hover:bg-green-700">
-                        Approve
+                      <Button 
+                        size="sm" 
+                        className="bg-green-600 hover:bg-green-700"
+                        onClick={() => handleApproveApplication(application.id)}
+                        disabled={application.status !== 0 || isProcessing[application.id]}
+                      >
+                        {isProcessing[application.id] ? 'Processing...' : 'Approve'}
                       </Button>
-                      <Button size="sm" variant="destructive">
-                        Reject
+                      <Button 
+                        size="sm" 
+                        variant="destructive"
+                        onClick={() => handleRejectApplication(application.id)}
+                        disabled={application.status !== 0 || isProcessing[application.id]}
+                      >
+                        {isProcessing[application.id] ? 'Processing...' : 'Reject'}
                       </Button>
                     </div>
                   </CardContent>
@@ -538,6 +634,115 @@ const LandlordDashboard = () => {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Application Details Modal */}
+      <Dialog open={!!selectedApplication} onOpenChange={() => setSelectedApplication(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="w-5 h-5" />
+              Application Details #{selectedApplication?.id}
+            </DialogTitle>
+            <DialogDescription>
+              Detailed information about this rental application
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedApplication && (
+            <div className="space-y-6">
+              {/* Status and Priority */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Status:</span>
+                  <Badge className={getStatusColor(selectedApplication.status)}>
+                    {getStatusText(selectedApplication.status)}
+                  </Badge>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Priority Score: {selectedApplication.priorityScore}
+                </div>
+              </div>
+
+              {/* Applicant Information */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg">Applicant Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <User className="w-4 h-4 text-muted-foreground" />
+                      <span className="font-medium">Address:</span>
+                    </div>
+                    <p className="font-mono text-sm bg-muted p-2 rounded">
+                      {selectedApplication.applicant}
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-muted-foreground" />
+                      <span className="font-medium">Move-in Date:</span>
+                    </div>
+                    <p className="text-sm">{selectedApplication.moveInDate}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Special Requests */}
+              {selectedApplication.specialRequests && (
+                <div className="space-y-2">
+                  <h3 className="font-semibold">Special Requests</h3>
+                  <p className="text-sm text-muted-foreground bg-muted p-3 rounded">
+                    {selectedApplication.specialRequests}
+                  </p>
+                </div>
+              )}
+
+              {/* Timeline */}
+              <div className="space-y-2">
+                <h3 className="font-semibold">Timeline</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span>Submitted:</span>
+                    <span>{formatDate(selectedApplication.submittedAt)}</span>
+                  </div>
+                  {selectedApplication.reviewedAt > 0 && (
+                    <div className="flex justify-between">
+                      <span>Reviewed:</span>
+                      <span>{formatDate(selectedApplication.reviewedAt)}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Actions */}
+              {selectedApplication.status === 0 && (
+                <div className="flex gap-2 pt-4 border-t">
+                  <Button 
+                    className="bg-green-600 hover:bg-green-700"
+                    onClick={() => {
+                      handleApproveApplication(selectedApplication.id);
+                      setSelectedApplication(null);
+                    }}
+                    disabled={isProcessing[selectedApplication.id]}
+                  >
+                    Approve Application
+                  </Button>
+                  <Button 
+                    variant="destructive"
+                    onClick={() => {
+                      handleRejectApplication(selectedApplication.id);
+                      setSelectedApplication(null);
+                    }}
+                    disabled={isProcessing[selectedApplication.id]}
+                  >
+                    Reject Application
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
