@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
-import { useAccount, useWriteContract } from 'wagmi';
+import { useAccount, useWriteContract, useWalletClient } from 'wagmi';
 import { useReadContract, useReadContracts } from 'wagmi';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Calendar, MapPin, DollarSign, Users, Clock, CheckCircle, XCircle, Plus, User, Eye } from "lucide-react";
+import { Calendar, MapPin, DollarSign, Users, Clock, CheckCircle, XCircle, Plus, User, Eye, Shield, Loader2 } from "lucide-react";
 import { formatEther } from 'viem';
+import { useZamaInstance } from '../hooks/useZamaInstance';
+import { RentShieldedFairABI } from '../lib/contract';
 
 // Contract ABI for reading property and application data
 const CONTRACT_ABI = [
@@ -117,12 +119,17 @@ interface ApplicationInfo {
 
 const LandlordDashboard = () => {
   const { address } = useAccount();
+  const { data: walletClient } = useWalletClient();
   const { writeContract } = useWriteContract();
+  const { instance, isLoading: fheLoading, error: fheError, isInitialized } = useZamaInstance();
   const [properties, setProperties] = useState<PropertyInfo[]>([]);
   const [applications, setApplications] = useState<ApplicationInfo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedApplication, setSelectedApplication] = useState<ApplicationInfo | null>(null);
   const [isProcessing, setIsProcessing] = useState<Record<number, boolean>>({});
+  const [decryptedData, setDecryptedData] = useState<Record<number, any>>({});
+  const [isDecrypting, setIsDecrypting] = useState<Record<number, boolean>>({});
+  const [decryptError, setDecryptError] = useState<Record<number, string>>({});
 
   console.log('[LandlordDashboard] Component rendered with address:', address);
 
@@ -327,6 +334,155 @@ const LandlordDashboard = () => {
   const handleViewDetails = (application: ApplicationInfo) => {
     setSelectedApplication(application);
     console.log('Viewing details for application:', application.id);
+  };
+
+  // FHE Decryption function (similar to MyApplications)
+  const decryptApplicationData = async (applicationId: number) => {
+    if (!instance || !address || !walletClient) {
+      console.error('Missing FHE instance, wallet, or address');
+      setDecryptError(prev => ({ ...prev, [applicationId]: 'Missing FHE instance or wallet connection' }));
+      return;
+    }
+
+    setIsDecrypting(prev => ({ ...prev, [applicationId]: true }));
+    setDecryptError(prev => ({ ...prev, [applicationId]: '' }));
+
+    try {
+      console.log(`[LandlordDashboard] Starting FHE decryption for application ${applicationId}...`);
+
+      // Step 1: Generate keypair
+      const keypair = instance.generateKeypair();
+      console.log('🔑 Generated keypair for decryption');
+
+      // Step 2: Create EIP712 structure
+      const eip712 = instance.createEIP712({
+        domain: {
+          name: 'FHE',
+          version: '1.0.0',
+          chainId: walletClient.chain.id,
+          verifyingContract: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
+        },
+        types: {
+          UserDecryptRequestVerification: [
+            { name: 'userAddress', type: 'address' },
+            { name: 'request', type: 'string' }
+          ]
+        },
+        primaryType: 'UserDecryptRequestVerification',
+        message: {
+          userAddress: address,
+          request: JSON.stringify({
+            userAddress: address,
+            contractAddress: import.meta.env.VITE_CONTRACT_ADDRESS
+          })
+        }
+      });
+
+      console.log('🔐 Created EIP712 structure for wallet signature');
+
+      // Step 3: Request wallet signature
+      console.log('📝 Requesting wallet signature for FHE decryption...');
+      const signature = await walletClient.request({
+        method: 'eth_signTypedData_v4',
+        params: [address, JSON.stringify({
+          domain: eip712.domain,
+          types: eip712.types,
+          primaryType: 'UserDecryptRequestVerification',
+          message: eip712.message
+        })]
+      });
+
+      console.log('✅ Wallet signature obtained for FHE decryption');
+
+      // Step 4: Get encrypted data from contract
+      console.log('[LandlordDashboard] Getting encrypted data from contract...');
+      
+      const { Contract, BrowserProvider } = await import('ethers');
+      
+      const network = {
+        chainId: walletClient.chain.id,
+        name: walletClient.chain.name,
+        ensAddress: walletClient.chain.contracts?.ensRegistry?.address,
+      };
+      const ethersProvider = new BrowserProvider(walletClient.transport as any, network);
+      const signer = await ethersProvider.getSigner();
+      
+      const contract = new Contract(import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`, RentShieldedFairABI, signer);
+      
+      const encryptedData = await contract.getApplicationEncryptedData(applicationId);
+      console.log('🔍 Encrypted data from contract:', encryptedData);
+
+      // Step 5: Perform FHE decryption
+      console.log('[LandlordDashboard] Performing real FHE decryption...');
+      
+      const encryptedDataTyped = encryptedData as unknown as {
+        proposedRent: string;
+        creditScore: string;
+        income: string;
+      };
+      
+      const handleContractPairs = [
+        { 
+          handle: encryptedDataTyped.proposedRent, 
+          contractAddress: import.meta.env.VITE_CONTRACT_ADDRESS as string
+        },
+        { 
+          handle: encryptedDataTyped.creditScore, 
+          contractAddress: import.meta.env.VITE_CONTRACT_ADDRESS as string
+        },
+        { 
+          handle: encryptedDataTyped.income, 
+          contractAddress: import.meta.env.VITE_CONTRACT_ADDRESS as string
+        }
+      ];
+
+      const contractAddresses = [import.meta.env.VITE_CONTRACT_ADDRESS as string];
+      const startTimeStamp = Math.floor(Date.now() / 1000);
+      const durationDays = '10';
+
+      const decryptionResult = await instance.userDecrypt(
+        handleContractPairs,
+        keypair.privateKey,
+        keypair.publicKey,
+        (signature as string).replace('0x', ''),
+        contractAddresses,
+        address,
+        startTimeStamp,
+        durationDays
+      );
+
+      console.log('🔍 FHE Decryption result:', decryptionResult);
+
+      const decryptedProposedRent = decryptionResult[encryptedDataTyped.proposedRent]?.toString() || '0';
+      const decryptedCreditScore = decryptionResult[encryptedDataTyped.creditScore]?.toString() || '0';
+      const decryptedIncome = decryptionResult[encryptedDataTyped.income]?.toString() || '0';
+
+      console.log('🔍 Decrypted values:', {
+        proposedRent: decryptedProposedRent,
+        creditScore: decryptedCreditScore,
+        income: decryptedIncome
+      });
+
+      const realDecryptedData = {
+        proposedRent: parseInt(decryptedProposedRent),
+        creditScore: parseInt(decryptedCreditScore),
+        income: parseInt(decryptedIncome),
+        encryptedData: {
+          proposedRent: encryptedDataTyped.proposedRent,
+          creditScore: encryptedDataTyped.creditScore,
+          income: encryptedDataTyped.income
+        }
+      };
+
+      setDecryptedData(prev => ({ ...prev, [applicationId]: realDecryptedData }));
+      console.log('✅ FHE decryption completed successfully');
+
+    } catch (error) {
+      console.error('FHE Decryption failed:', error);
+      setDecryptError(prev => ({ ...prev, [applicationId]: error instanceof Error ? error.message : 'Decryption failed' }));
+    } finally {
+      setIsDecrypting(prev => ({ ...prev, [applicationId]: false }));
+    }
   };
 
   const handleApproveApplication = async (applicationId: number) => {
@@ -538,11 +694,6 @@ const LandlordDashboard = () => {
                         </div>
                       </div>
                     </div>
-                    <div className="mt-4 pt-4 border-t">
-                      <Button variant="outline" className="w-full">
-                        View Applications
-                      </Button>
-                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -637,7 +788,7 @@ const LandlordDashboard = () => {
 
       {/* Application Details Modal */}
       <Dialog open={!!selectedApplication} onOpenChange={() => setSelectedApplication(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Eye className="w-5 h-5" />
@@ -696,6 +847,84 @@ const LandlordDashboard = () => {
                   </p>
                 </div>
               )}
+
+              {/* Encrypted Data Section */}
+              <div className="space-y-4 border-t pt-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-lg flex items-center gap-2">
+                    <Shield className="w-5 h-5" />
+                    Encrypted Financial Data
+                  </h3>
+                  {!decryptedData[selectedApplication.id] && (
+                    <Button
+                      onClick={() => decryptApplicationData(selectedApplication.id)}
+                      disabled={isDecrypting[selectedApplication.id] || !isInitialized}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      {isDecrypting[selectedApplication.id] ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Decrypting...
+                        </>
+                      ) : (
+                        <>
+                          <Shield className="w-4 h-4 mr-2" />
+                          Decrypt Sensitive Data
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+
+                {decryptError[selectedApplication.id] && (
+                  <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                    <p className="text-red-600 text-sm">
+                      Decryption Error: {decryptError[selectedApplication.id]}
+                    </p>
+                  </div>
+                )}
+
+                {decryptedData[selectedApplication.id] ? (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <DollarSign className="w-4 h-4 text-green-600" />
+                        <span className="font-semibold text-green-800">Proposed Rent</span>
+                      </div>
+                      <p className="text-2xl font-bold text-green-700">
+                        ${decryptedData[selectedApplication.id].proposedRent.toLocaleString()}
+                      </p>
+                    </div>
+
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <User className="w-4 h-4 text-blue-600" />
+                        <span className="font-semibold text-blue-800">Credit Score</span>
+                      </div>
+                      <p className="text-2xl font-bold text-blue-700">
+                        {decryptedData[selectedApplication.id].creditScore}
+                      </p>
+                    </div>
+
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <DollarSign className="w-4 h-4 text-purple-600" />
+                        <span className="font-semibold text-purple-800">Monthly Income</span>
+                      </div>
+                      <p className="text-2xl font-bold text-purple-700">
+                        ${decryptedData[selectedApplication.id].income.toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
+                    <Shield className="w-8 h-8 mx-auto text-gray-400 mb-2" />
+                    <p className="text-gray-600 text-sm">
+                      Click "Decrypt Sensitive Data" to view encrypted financial information
+                    </p>
+                  </div>
+                )}
+              </div>
 
               {/* Timeline */}
               <div className="space-y-2">
