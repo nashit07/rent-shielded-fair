@@ -13,9 +13,10 @@ import { RentShieldedFairABI } from '../lib/contract';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import apartment1 from "@/assets/apartment-1.jpg";
-import apartment2 from "@/assets/apartment-2.jpg";
-import apartment3 from "@/assets/apartment-3.jpg";
+// Use public assets for Vercel deployment compatibility
+const apartment1 = "/apartment-1.jpg";
+const apartment2 = "/apartment-2.jpg";
+const apartment3 = "/apartment-3.jpg";
 
 // Contract ABI for reading property and application data
 const CONTRACT_ABI = [
