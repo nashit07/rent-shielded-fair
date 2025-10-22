@@ -17,18 +17,9 @@ const MyApplications = () => {
   const [decryptedData, setDecryptedData] = useState<Record<number, any>>({});
   const [decryptingStates, setDecryptingStates] = useState<Record<number, boolean>>({});
   const [decryptErrors, setDecryptErrors] = useState<Record<number, string>>({});
-  const [currentDecryptingId, setCurrentDecryptingId] = useState<number | null>(null);
 
-  // Get encrypted data from contract when decrypting
-  const { data: encryptedData, isLoading: encryptedDataLoading, error: encryptedDataError } = useReadContract({
-    address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
-    abi: RentShieldedFairABI,
-    functionName: 'getApplicationEncryptedData',
-    args: currentDecryptingId !== null ? [BigInt(currentDecryptingId)] : undefined,
-    query: {
-      enabled: currentDecryptingId !== null && isInitialized
-    }
-  });
+  // Note: We'll get encrypted data directly in the decrypt function using ethers.Contract
+  // This is because encrypted data (euint32) cannot be read with useReadContract
 
   console.log('[MyApplications] Component rendered with:', {
     address,
@@ -64,10 +55,9 @@ const MyApplications = () => {
 
     console.log(`[MyApplications] Starting REAL FHE decryption for application ${applicationId}...`);
     
-    // Set loading state and trigger encrypted data fetch
+    // Set loading state
     setDecryptingStates(prev => ({ ...prev, [applicationId]: true }));
     setDecryptErrors(prev => ({ ...prev, [applicationId]: '' }));
-    setCurrentDecryptingId(applicationId);
 
     try {
       console.log('[MyApplications] Attempting REAL FHE decryption with wallet signature...');
@@ -116,23 +106,15 @@ const MyApplications = () => {
 
       console.log('✅ Wallet signature obtained for FHE decryption');
       
-      // Step 4: Wait for encrypted data from contract
-      console.log('[MyApplications] Waiting for encrypted data from contract...');
+      // Step 4: Get encrypted data from contract using ethers.Contract (like aidwell-connect)
+      console.log('[MyApplications] Getting encrypted data from contract...');
       
-      // Wait for encrypted data to be loaded
-      if (encryptedDataLoading) {
-        console.log('[MyApplications] Waiting for encrypted data...');
-        // Wait a bit for the data to load
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
+      // Import ethers and create contract instance
+      const { Contract } = await import('ethers');
+      const contract = new Contract(contractAddress, RentShieldedFairABI, provider);
       
-      if (encryptedDataError) {
-        throw new Error(`Failed to get encrypted data: ${encryptedDataError.message}`);
-      }
-      
-      if (!encryptedData) {
-        throw new Error('No encrypted data available');
-      }
+      // Get encrypted data from contract
+      const encryptedData = await contract.getApplicationEncryptedData(applicationId);
       
       console.log('🔍 Encrypted data from contract:', encryptedData);
       
@@ -256,7 +238,6 @@ const MyApplications = () => {
       }));
     } finally {
       setDecryptingStates(prev => ({ ...prev, [applicationId]: false }));
-      setCurrentDecryptingId(null);
     }
   };
 
