@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAccount, useWriteContract, useWalletClient } from 'wagmi';
 import { useReadContract, useReadContracts } from 'wagmi';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -157,44 +157,49 @@ const LandlordDashboard = () => {
   });
 
 
-  // Process properties data
-  useEffect(() => {
-    if (propertiesData && address) {
-      const processedProperties: PropertyInfo[] = [];
-      
-      propertiesData.forEach((result, index) => {
-        if (result.status === 'success' && result.result) {
-          const data = result.result as any[];
-          const propertyOwner = data[10]; // propertyOwner is at index 10
+  // Process properties data with useMemo to prevent unnecessary re-renders
+  const processedProperties = useMemo(() => {
+    if (!propertiesData || !address) return [];
+    
+    const properties: PropertyInfo[] = [];
+    
+    propertiesData.forEach((result, index) => {
+      if (result.status === 'success' && result.result) {
+        const data = result.result as any[];
+        const propertyOwner = data[10]; // propertyOwner is at index 10
+        
+        // Only include properties owned by the current user
+        if (propertyOwner.toLowerCase() === address.toLowerCase()) {
+          const property = {
+            id: index,
+            name: data[0],
+            description: data[1],
+            location: data[2],
+            monthlyRent: Number(data[3]).toString(),
+            securityDeposit: Number(data[4]).toString(),
+            propertySize: Number(data[5]),
+            bedrooms: Number(data[6]),
+            bathrooms: Number(data[7]),
+            isAvailable: data[8],
+            isVerified: data[9],
+            owner: propertyOwner,
+            createdAt: Number(data[11]),
+            applications: []
+          };
           
-          // Only include properties owned by the current user
-          if (propertyOwner.toLowerCase() === address.toLowerCase()) {
-            const property = {
-              id: index,
-              name: data[0],
-              description: data[1],
-              location: data[2],
-              monthlyRent: Number(data[3]).toString(),
-              securityDeposit: Number(data[4]).toString(),
-              propertySize: Number(data[5]),
-              bedrooms: Number(data[6]),
-              bathrooms: Number(data[7]),
-              isAvailable: data[8],
-              isVerified: data[9],
-              owner: propertyOwner,
-              createdAt: Number(data[11]),
-              applications: []
-            };
-            
-            processedProperties.push(property);
-          }
+          properties.push(property);
         }
-      });
-      
-      setProperties(processedProperties);
-      setIsLoading(false);
-    }
+      }
+    });
+    
+    return properties;
   }, [propertiesData, address]);
+
+  // Update properties state when processed data changes
+  useEffect(() => {
+    setProperties(processedProperties);
+    setIsLoading(false);
+  }, [processedProperties]);
 
   // Get landlord's applications directly (more efficient)
   const { data: landlordApplicationsData, isLoading: landlordApplicationsLoading } = useReadContract({
@@ -207,20 +212,22 @@ const LandlordDashboard = () => {
     },
   });
 
-  // Convert application IDs to numbers
-  const allApplicationIds: number[] = [];
-  if (landlordApplicationsData) {
+  // Convert application IDs to numbers with useMemo
+  const allApplicationIds = useMemo(() => {
+    if (!landlordApplicationsData) return [];
     const appIds = landlordApplicationsData as readonly bigint[];
-    allApplicationIds.push(...appIds.map(id => Number(id)));
-  }
+    return appIds.map(id => Number(id));
+  }, [landlordApplicationsData]);
 
-  // Get detailed application info for all applications
-  const detailedApplicationCalls = allApplicationIds.map(appId => ({
-    address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
-    abi: CONTRACT_ABI,
-    functionName: 'getDetailedApplicationInfo',
-    args: [appId],
-  }));
+  // Get detailed application info for all applications with useMemo
+  const detailedApplicationCalls = useMemo(() => {
+    return allApplicationIds.map(appId => ({
+      address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
+      abi: CONTRACT_ABI,
+      functionName: 'getDetailedApplicationInfo',
+      args: [appId],
+    }));
+  }, [allApplicationIds]);
 
   const { data: detailedApplicationsData, isLoading: detailedApplicationsLoading } = useReadContracts({
     contracts: detailedApplicationCalls,
@@ -229,51 +236,56 @@ const LandlordDashboard = () => {
     },
   });
 
-  // Process applications data
-  useEffect(() => {
-    if (detailedApplicationsData && allApplicationIds.length > 0 && address) {
-      const landlordApplications: ApplicationInfo[] = [];
-      
-      detailedApplicationsData.forEach((result, index) => {
-        if (result.status === 'success' && result.result) {
-          const data = result.result as any[];
-          const appId = allApplicationIds[index];
-          
-          // Map contract data to our interface
-          // Contract returns: [isApproved, isRejected, applicationHash, moveInDate, specialRequests, applicant, propertyOwner, submittedAt, reviewedAt, priorityScore]
-          const isApproved = data[0];
-          const isRejected = data[1];
-          const applicationHash = data[2];
-          const moveInDate = data[3];
-          const specialRequests = data[4];
-          const applicant = data[5];
-          const propertyOwner = data[6];
-          const submittedAt = Number(data[7]);
-          const reviewedAt = Number(data[8]);
-          const priorityScore = Number(data[9]);
-          
-          // Determine status: 0 = pending, 1 = approved, 2 = rejected
-          let status = 0; // pending
-          if (isApproved) status = 1;
-          else if (isRejected) status = 2;
-          
-          landlordApplications.push({
-            id: appId,
-            applicant: applicant,
-            moveInDate: moveInDate,
-            specialRequests: specialRequests,
-            status: status,
-            priorityScore: priorityScore,
-            submittedAt: submittedAt,
-            reviewedAt: reviewedAt,
-            propertyOwner: propertyOwner
-          });
-        }
-      });
-      
-      setApplications(landlordApplications);
-    }
+  // Process applications data with useMemo to prevent unnecessary re-renders
+  const processedApplications = useMemo(() => {
+    if (!detailedApplicationsData || allApplicationIds.length === 0 || !address) return [];
+    
+    const applications: ApplicationInfo[] = [];
+    
+    detailedApplicationsData.forEach((result, index) => {
+      if (result.status === 'success' && result.result) {
+        const data = result.result as any[];
+        const appId = allApplicationIds[index];
+        
+        // Map contract data to our interface
+        // Contract returns: [isApproved, isRejected, applicationHash, moveInDate, specialRequests, applicant, propertyOwner, submittedAt, reviewedAt, priorityScore]
+        const isApproved = data[0];
+        const isRejected = data[1];
+        const applicationHash = data[2];
+        const moveInDate = data[3];
+        const specialRequests = data[4];
+        const applicant = data[5];
+        const propertyOwner = data[6];
+        const submittedAt = Number(data[7]);
+        const reviewedAt = Number(data[8]);
+        const priorityScore = Number(data[9]);
+        
+        // Determine status: 0 = pending, 1 = approved, 2 = rejected
+        let status = 0; // pending
+        if (isApproved) status = 1;
+        else if (isRejected) status = 2;
+        
+        applications.push({
+          id: appId,
+          applicant: applicant,
+          moveInDate: moveInDate,
+          specialRequests: specialRequests,
+          status: status,
+          priorityScore: priorityScore,
+          submittedAt: submittedAt,
+          reviewedAt: reviewedAt,
+          propertyOwner: propertyOwner
+        });
+      }
+    });
+    
+    return applications;
   }, [detailedApplicationsData, allApplicationIds, address]);
+
+  // Update applications state when processed data changes
+  useEffect(() => {
+    setApplications(processedApplications);
+  }, [processedApplications]);
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleDateString('en-US', {
