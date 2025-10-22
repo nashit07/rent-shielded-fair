@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useAccount, useReadContract } from 'wagmi';
+import { useAccount, useReadContract, useWalletClient } from 'wagmi';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { RentShieldedFairABI } from '../lib/contract';
 
 const MyApplications = () => {
   const { address } = useAccount();
+  const { data: walletClient } = useWalletClient();
   const { applications, isLoading, getStatusText, getStatusColor } = useApplications();
   const { instance, isLoading: fheLoading, error: fheError, isInitialized, initializeZama } = useZamaInstance();
   
@@ -109,9 +110,23 @@ const MyApplications = () => {
       // Step 4: Get encrypted data from contract using ethers.Contract (like aidwell-connect)
       console.log('[MyApplications] Getting encrypted data from contract...');
       
-      // Import ethers and create contract instance
-      const { Contract } = await import('ethers');
-      const contract = new Contract(contractAddress, RentShieldedFairABI, provider);
+      // Import ethers and create contract instance with signer (like aidwell-connect)
+      const { Contract, BrowserProvider } = await import('ethers');
+      
+      if (!walletClient) {
+        throw new Error('Wallet client not available');
+      }
+      
+      // Create provider and signer from wallet client (same as aidwell-connect)
+      const network = {
+        chainId: walletClient.chain.id,
+        name: walletClient.chain.name,
+        ensAddress: walletClient.chain.contracts?.ensRegistry?.address,
+      };
+      const ethersProvider = new BrowserProvider(walletClient.transport as any, network);
+      const signer = await ethersProvider.getSigner();
+      
+      const contract = new Contract(contractAddress, RentShieldedFairABI, signer);
       
       // Get encrypted data from contract
       const encryptedData = await contract.getApplicationEncryptedData(applicationId);
