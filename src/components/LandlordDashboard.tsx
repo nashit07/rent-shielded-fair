@@ -131,8 +131,6 @@ const LandlordDashboard = () => {
   const [isDecrypting, setIsDecrypting] = useState<Record<number, boolean>>({});
   const [decryptError, setDecryptError] = useState<Record<number, string>>({});
 
-  console.log('[LandlordDashboard] Component rendered with address:', address);
-
   // Get total property count
   const { data: propertyCount, isLoading: countLoading } = useReadContract({
     address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
@@ -140,13 +138,8 @@ const LandlordDashboard = () => {
     functionName: 'propertyCounter',
   });
 
-  console.log('[LandlordDashboard] Property count:', propertyCount);
-
   // Get property data for all properties
   const propertyIds = propertyCount ? Array.from({ length: Number(propertyCount) }, (_, i) => i) : [];
-  
-  console.log('[LandlordDashboard] Property IDs:', propertyIds);
-  console.log('[LandlordDashboard] Contract address:', import.meta.env.VITE_CONTRACT_ADDRESS);
   
   const propertyCalls = propertyIds.map((id) => ({
     address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
@@ -154,8 +147,6 @@ const LandlordDashboard = () => {
     functionName: 'getPropertyInfo',
     args: [id],
   }));
-
-  console.log('[LandlordDashboard] Property calls:', propertyCalls);
 
   // @ts-ignore - Complex type inference issue with useReadContracts
   const { data: propertiesData, isLoading: propertiesLoading, error: propertiesError } = useReadContracts({
@@ -165,34 +156,19 @@ const LandlordDashboard = () => {
     },
   });
 
-  console.log('[LandlordDashboard] Properties data:', propertiesData);
-  console.log('[LandlordDashboard] Properties loading:', propertiesLoading);
-  console.log('[LandlordDashboard] Properties error:', propertiesError);
 
   // Process properties data
   useEffect(() => {
     if (propertiesData && address) {
-      console.log('📊 Processing properties data for landlord...');
-      console.log('📊 Raw properties data:', propertiesData);
-      
       const processedProperties: PropertyInfo[] = [];
       
       propertiesData.forEach((result, index) => {
-        console.log(`📊 Processing property ${index}:`, result);
-        
         if (result.status === 'success' && result.result) {
           const data = result.result as any[];
-          console.log(`📊 Property ${index} data:`, data);
-          
           const propertyOwner = data[10]; // propertyOwner is at index 10
-          console.log(`📊 Property ${index} owner:`, propertyOwner);
-          console.log(`📊 Current address:`, address);
-          console.log(`📊 Owner match:`, propertyOwner.toLowerCase() === address.toLowerCase());
           
           // Only include properties owned by the current user
           if (propertyOwner.toLowerCase() === address.toLowerCase()) {
-            console.log(`✅ Property ${index} belongs to landlord`);
-            
             const property = {
               id: index,
               name: data[0],
@@ -210,18 +186,11 @@ const LandlordDashboard = () => {
               applications: []
             };
             
-            console.log(`📊 Processed property ${index}:`, property);
             processedProperties.push(property);
-          } else {
-            console.log(`❌ Property ${index} not owned by landlord`);
           }
-        } else {
-          console.log(`❌ Property ${index} failed to load:`, result);
         }
       });
       
-      console.log(`✅ Found ${processedProperties.length} properties for landlord`);
-      console.log('📊 Final processed properties:', processedProperties);
       setProperties(processedProperties);
       setIsLoading(false);
     }
@@ -238,16 +207,12 @@ const LandlordDashboard = () => {
     },
   });
 
-  console.log('[LandlordDashboard] Landlord applications data:', landlordApplicationsData);
-
   // Convert application IDs to numbers
   const allApplicationIds: number[] = [];
   if (landlordApplicationsData) {
     const appIds = landlordApplicationsData as readonly bigint[];
     allApplicationIds.push(...appIds.map(id => Number(id)));
   }
-
-  console.log('[LandlordDashboard] All application IDs for landlord:', allApplicationIds);
 
   // Get detailed application info for all applications
   const detailedApplicationCalls = allApplicationIds.map(appId => ({
@@ -264,21 +229,15 @@ const LandlordDashboard = () => {
     },
   });
 
-  console.log('[LandlordDashboard] Detailed applications data:', detailedApplicationsData);
-
   // Process applications data
   useEffect(() => {
     if (detailedApplicationsData && allApplicationIds.length > 0 && address) {
-      console.log('📊 Processing detailed applications data...');
-      
       const landlordApplications: ApplicationInfo[] = [];
       
       detailedApplicationsData.forEach((result, index) => {
         if (result.status === 'success' && result.result) {
           const data = result.result as any[];
           const appId = allApplicationIds[index];
-          
-          console.log(`📊 Processing application ${appId} data:`, data);
           
           // Map contract data to our interface
           // Contract returns: [isApproved, isRejected, applicationHash, moveInDate, specialRequests, applicant, propertyOwner, submittedAt, reviewedAt, priorityScore]
@@ -292,9 +251,6 @@ const LandlordDashboard = () => {
           const submittedAt = Number(data[7]);
           const reviewedAt = Number(data[8]);
           const priorityScore = Number(data[9]);
-          
-          // Since we got applications through landlord's properties, all applications belong to the landlord
-          console.log(`✅ Application ${appId} belongs to landlord`);
           
           // Determine status: 0 = pending, 1 = approved, 2 = rejected
           let status = 0; // pending
@@ -315,7 +271,6 @@ const LandlordDashboard = () => {
         }
       });
       
-      console.log(`✅ Found ${landlordApplications.length} applications for landlord`);
       setApplications(landlordApplications);
     }
   }, [detailedApplicationsData, allApplicationIds, address]);
@@ -333,7 +288,6 @@ const LandlordDashboard = () => {
   // Handle application actions
   const handleViewDetails = (application: ApplicationInfo) => {
     setSelectedApplication(application);
-    console.log('Viewing details for application:', application.id);
   };
 
   // FHE Decryption function (similar to MyApplications)
@@ -348,11 +302,8 @@ const LandlordDashboard = () => {
     setDecryptError(prev => ({ ...prev, [applicationId]: '' }));
 
     try {
-      console.log(`[LandlordDashboard] Starting FHE decryption for application ${applicationId}...`);
-
       // Step 1: Generate keypair
       const keypair = instance.generateKeypair();
-      console.log('🔑 Generated keypair for decryption');
 
       // Step 2: Create EIP712 structure
       const eip712 = instance.createEIP712({
@@ -378,10 +329,7 @@ const LandlordDashboard = () => {
         }
       });
 
-      console.log('🔐 Created EIP712 structure for wallet signature');
-
       // Step 3: Request wallet signature
-      console.log('📝 Requesting wallet signature for FHE decryption...');
       const signature = await walletClient.request({
         method: 'eth_signTypedData_v4',
         params: [address, JSON.stringify({
@@ -392,10 +340,7 @@ const LandlordDashboard = () => {
         })]
       });
 
-      console.log('✅ Wallet signature obtained for FHE decryption');
-
       // Step 4: Get encrypted data from contract
-      console.log('[LandlordDashboard] Getting encrypted data from contract...');
       
       const { Contract, BrowserProvider } = await import('ethers');
       
@@ -410,10 +355,8 @@ const LandlordDashboard = () => {
       const contract = new Contract(import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`, RentShieldedFairABI, signer);
       
       const encryptedData = await contract.getApplicationEncryptedData(applicationId);
-      console.log('🔍 Encrypted data from contract:', encryptedData);
 
       // Step 5: Perform FHE decryption
-      console.log('[LandlordDashboard] Performing real FHE decryption...');
       
       const encryptedDataTyped = encryptedData as unknown as {
         proposedRent: string;
@@ -451,17 +394,9 @@ const LandlordDashboard = () => {
         durationDays
       );
 
-      console.log('🔍 FHE Decryption result:', decryptionResult);
-
       const decryptedProposedRent = decryptionResult[encryptedDataTyped.proposedRent]?.toString() || '0';
       const decryptedCreditScore = decryptionResult[encryptedDataTyped.creditScore]?.toString() || '0';
       const decryptedIncome = decryptionResult[encryptedDataTyped.income]?.toString() || '0';
-
-      console.log('🔍 Decrypted values:', {
-        proposedRent: decryptedProposedRent,
-        creditScore: decryptedCreditScore,
-        income: decryptedIncome
-      });
 
       const realDecryptedData = {
         proposedRent: parseInt(decryptedProposedRent),
@@ -475,7 +410,6 @@ const LandlordDashboard = () => {
       };
 
       setDecryptedData(prev => ({ ...prev, [applicationId]: realDecryptedData }));
-      console.log('✅ FHE decryption completed successfully');
 
     } catch (error) {
       console.error('FHE Decryption failed:', error);
@@ -494,16 +428,12 @@ const LandlordDashboard = () => {
     setIsProcessing(prev => ({ ...prev, [applicationId]: true }));
     
     try {
-      console.log('Approving application:', applicationId);
-      
       await writeContract({
         address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
         abi: CONTRACT_ABI as any,
         functionName: 'reviewApplication',
         args: [applicationId, true], // true = approve
       } as any);
-      
-      console.log('Application approved successfully');
       
       // Update local state
       setApplications(prev => 
@@ -530,16 +460,12 @@ const LandlordDashboard = () => {
     setIsProcessing(prev => ({ ...prev, [applicationId]: true }));
     
     try {
-      console.log('Rejecting application:', applicationId);
-      
       await writeContract({
         address: import.meta.env.VITE_CONTRACT_ADDRESS as `0x${string}`,
         abi: CONTRACT_ABI as any,
         functionName: 'reviewApplication',
         args: [applicationId, false], // false = reject
       } as any);
-      
-      console.log('Application rejected successfully');
       
       // Update local state
       setApplications(prev => 
@@ -585,13 +511,6 @@ const LandlordDashboard = () => {
     );
   }
 
-  console.log('[LandlordDashboard] Render state:', {
-    isLoading,
-    countLoading,
-    propertiesLoading,
-    propertiesLength: properties.length,
-    address
-  });
 
   if (isLoading || countLoading || propertiesLoading) {
     return (
@@ -626,13 +545,6 @@ const LandlordDashboard = () => {
         </TabsList>
 
         <TabsContent value="properties" className="space-y-6">
-          {(() => {
-            console.log('[LandlordDashboard] Rendering properties tab:', {
-              propertiesLength: properties.length,
-              properties: properties
-            });
-            return null;
-          })()}
           {properties.length === 0 ? (
             <div className="text-center py-12">
               <MapPin className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
