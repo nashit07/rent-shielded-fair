@@ -15,6 +15,14 @@
 
 ---
 
+## 🎥 Demo Video
+
+[![RentShield Demo](https://img.shields.io/badge/📹-Watch%20Demo-red.svg)](https://github.com/nashit07/rent-shielded-fair/blob/main/rent-shielded-fair.mov)
+
+**Watch our complete demo**: [rent-shielded-fair.mov](https://github.com/nashit07/rent-shielded-fair/blob/main/rent-shielded-fair.mov) (14MB)
+
+*Experience the full privacy-preserving rental application process with FHE encryption*
+
 ## 🌟 What Makes Us Different?
 
 Unlike traditional rental platforms that expose your sensitive financial data, **RentShield** leverages cutting-edge **Fully Homomorphic Encryption (FHE)** to protect your privacy while maintaining full functionality.
@@ -110,46 +118,125 @@ NEXT_PUBLIC_CONTRACT_ADDRESS=YOUR_DEPLOYED_CONTRACT_ADDRESS
 
 Our smart contract implements a complete rental ecosystem with FHE protection:
 
+### Contract Address
+**Deployed Contract**: `0x7ed92C81cC7329eCf12B8e5F8E371aa9aE523F52` (Sepolia Testnet)
+
 ### Core Functions
 
 ```solidity
 // List property with encrypted rent data
 function listProperty(
-    string memory name,
-    string memory description,
-    uint256 monthlyRent,
-    uint256 securityDeposit
+    string memory _name,
+    string memory _description,
+    string memory _location,
+    uint256 _monthlyRent,
+    uint256 _securityDeposit,
+    uint256 _propertySize,
+    uint8 _bedrooms,
+    uint8 _bathrooms,
+    string memory _propertyType,
+    string memory _amenities,
+    uint256 _leaseDuration,
+    uint256 _applicationDeadline
 ) public returns (uint256)
 
 // Submit application with encrypted personal data
 function submitApplication(
-    uint256 propertyId,
-    externalEuint32 proposedRent,
-    externalEuint32 creditScore,
-    externalEuint32 income
+    uint256 _propertyId,
+    string memory _moveInDate,
+    string memory _specialRequests,
+    euint32 _proposedRent,
+    euint32 _creditScore,
+    euint32 _income
 ) public returns (uint256)
 
-// Create rental agreement with encrypted terms
-function createAgreement(
-    uint256 applicationId,
-    externalEuint32 monthlyRent,
-    externalEuint32 securityDeposit
-) public returns (uint256)
+// Get encrypted application data for decryption
+function getApplicationEncryptedData(
+    uint256 _applicationId
+) public view returns (euint32, euint32, euint32)
 
-// Process encrypted rental payments
-function makePayment(
-    uint256 agreementId,
-    externalEuint32 amount
-) public payable returns (uint256)
+// Review application (approve/reject)
+function reviewApplication(
+    uint256 _applicationId,
+    bool _isApproved
+) public
+
+// Get landlord's properties
+function getLandlordProperties(
+    address _landlord
+) public view returns (uint256[] memory)
+
+// Get landlord's applications
+function getLandlordApplications(
+    address _landlord
+) public view returns (uint256[] memory)
+```
+
+### 🔐 FHE Data Encryption/Decryption Logic
+
+#### Encryption Process (Frontend → Contract)
+```typescript
+// 1. Initialize FHE SDK
+const fhevm = await createInstance({
+  chainId: 11155111, // Sepolia
+  publicKey: publicKey,
+});
+
+// 2. Encrypt sensitive data
+const encryptedRent = fhevm.encrypt32(proposedRent);
+const encryptedCredit = fhevm.encrypt32(creditScore);
+const encryptedIncome = fhevm.encrypt32(income);
+
+// 3. Submit to contract
+await contract.submitApplication(
+  propertyId,
+  moveInDate,
+  specialRequests,
+  encryptedRent,
+  encryptedCredit,
+  encryptedIncome
+);
+```
+
+#### Decryption Process (Contract → Frontend)
+```typescript
+// 1. Get encrypted data from contract
+const encryptedData = await contract.getApplicationEncryptedData(applicationId);
+
+// 2. Create EIP712 signature for decryption
+const eip712 = createEIP712({
+  domain: {
+    name: "FHE",
+    version: "1",
+    chainId: 11155111,
+    verifyingContract: contractAddress,
+  },
+  types: {
+    Reencrypt: [
+      { name: "publicKey", type: "bytes" },
+      { name: "signature", type: "bytes" },
+    ],
+  },
+  primaryType: "Reencrypt",
+});
+
+// 3. Request wallet signature
+const signature = await walletClient.signTypedData(eip712);
+
+// 4. Decrypt data using FHE
+const decryptedRent = fhevm.decrypt(encryptedData.proposedRent, signature);
+const decryptedCredit = fhevm.decrypt(encryptedData.creditScore, signature);
+const decryptedIncome = fhevm.decrypt(encryptedData.income, signature);
 ```
 
 ### Privacy Guarantees
 
-- ✅ **Rent amounts** are encrypted using FHE
-- ✅ **Credit scores** remain confidential
-- ✅ **Income data** is never exposed
+- ✅ **Rent amounts** are encrypted using FHE (`euint32`)
+- ✅ **Credit scores** remain confidential (`euint32`)
+- ✅ **Income data** is never exposed (`euint32`)
 - ✅ **Personal information** is protected
-- ✅ **Payment history** is encrypted
+- ✅ **Wallet signatures** required for decryption
+- ✅ **EIP712** typed data signatures for security
 
 ---
 
